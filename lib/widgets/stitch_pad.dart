@@ -4,11 +4,13 @@ import '../models/stitch.dart';
 class StitchPad extends StatelessWidget {
   final Function(StitchType) onStitchTap;
   final VoidCallback onAddRow;
+  final VoidCallback onDelete;
 
   const StitchPad({
     super.key,
     required this.onStitchTap,
     required this.onAddRow,
+    required this.onDelete,
   });
 
   @override
@@ -28,6 +30,8 @@ class StitchPad extends StatelessWidget {
               _buildStitchButton(StitchType.knit),
               const SizedBox(width: 12),
               _buildStitchButton(StitchType.purl),
+              const SizedBox(width: 12),
+              _buildDeleteButton(),
             ],
           ),
           const SizedBox(height: 12),
@@ -67,6 +71,42 @@ class StitchPad extends StatelessWidget {
             Text(
               stitch.koreanName,
               style: const TextStyle(
+                fontSize: 11,
+                color: Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteButton() {
+    return GestureDetector(
+      onTap: onDelete,
+      child: Container(
+        width: 70,
+        height: 70,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFFFD1DC),
+            width: 1,
+          ),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.backspace_outlined,
+              size: 24,
+              color: Color(0xFFFF6B6B),
+            ),
+            SizedBox(height: 2),
+            Text(
+              '삭제',
+              style: TextStyle(
                 fontSize: 11,
                 color: Colors.black54,
               ),

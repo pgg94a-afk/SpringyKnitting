@@ -88,6 +88,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             StitchPad(
               onStitchTap: _addStitch,
               onAddRow: _addRow,
+              onDelete: _removeLastStitch,
             ),
           ],
         ),
