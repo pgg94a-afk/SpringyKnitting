@@ -138,23 +138,32 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               ),
               child: row.isEmpty
                   ? null
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.all(8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: row.asMap().entries.toList().reversed.map((entry) {
-                          final stitchIndex = entry.key;
-                          final stitch = entry.value;
-                          final isLast = stitchIndex == row.length - 1;
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              right: isLast ? 0 : 8,
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          reverse: true,
+                          padding: const EdgeInsets.all(8),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minWidth: constraints.maxWidth - 16,
                             ),
-                            child: _buildStitchCell(stitch, stitchIndex + 1),
-                          );
-                        }).toList(),
-                      ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: row.asMap().entries.map((entry) {
+                                final stitchIndex = entry.key;
+                                final stitch = entry.value;
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    left: stitchIndex == 0 ? 0 : 8,
+                                  ),
+                                  child: _buildStitchCell(stitch, stitchIndex + 1),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        );
+                      },
                     ),
             ),
           ],
