@@ -61,6 +61,38 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     });
   }
 
+  void _deleteRow(int index) {
+    if (_rows.length <= 1) return;
+
+    setState(() {
+      _scrollControllers[index]?.dispose();
+      _scrollControllers.remove(index);
+      _rows.removeAt(index);
+
+      // Reindex scroll controllers
+      final newControllers = <int, ScrollController>{};
+      for (var i = 0; i < _rows.length; i++) {
+        if (_scrollControllers.containsKey(i > index ? i + 1 : i)) {
+          newControllers[i] = _scrollControllers[i > index ? i + 1 : i]!;
+        }
+      }
+      _scrollControllers.clear();
+      _scrollControllers.addAll(newControllers);
+
+      if (_currentRowIndex >= _rows.length) {
+        _currentRowIndex = _rows.length - 1;
+      } else if (_currentRowIndex > index) {
+        _currentRowIndex--;
+      }
+    });
+  }
+
+  void _clearRow(int index) {
+    setState(() {
+      _rows[index].clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,6 +183,46 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                     fontSize: 14,
                     color: isCurrentRow ? Colors.black54 : Colors.black38,
                   ),
+                ),
+                const SizedBox(width: 4),
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  iconSize: 20,
+                  icon: Icon(
+                    Icons.more_vert,
+                    size: 18,
+                    color: isCurrentRow ? Colors.black54 : Colors.black38,
+                  ),
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _deleteRow(rowIndex);
+                    } else if (value == 'clear') {
+                      _clearRow(rowIndex);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'clear',
+                      child: Row(
+                        children: [
+                          Icon(Icons.refresh, size: 18),
+                          SizedBox(width: 8),
+                          Text('행 초기화'),
+                        ],
+                      ),
+                    ),
+                    if (_rows.length > 1)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('행 삭제', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
