@@ -154,6 +154,7 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
         loop: false,
         enableCaption: false,
         playsInline: true,
+        origin: "https://www.youtube-nocookie.com"
       ),
     );
 
