@@ -360,7 +360,7 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
                     child: Container(
                       color: Colors.black.withOpacity(0.2),
                       child: Icon(
-                        isPlaying ? Icons.pause_circle_fill : Icons.play_circle_fill,
+                        isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
                         size: 36,
                         color: Colors.white,
                       ),
