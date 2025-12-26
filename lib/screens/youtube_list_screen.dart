@@ -150,6 +150,10 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
+        mute: false,
+        loop: false,
+        enableCaption: false,
+        playsInline: true,
       ),
     );
 
