@@ -140,16 +140,16 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                   ? null
                   : SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      reverse: true,
                       padding: const EdgeInsets.all(8),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
-                        children: row.asMap().entries.map((entry) {
+                        children: row.asMap().entries.toList().reversed.map((entry) {
                           final stitchIndex = entry.key;
                           final stitch = entry.value;
+                          final isLast = stitchIndex == row.length - 1;
                           return Padding(
                             padding: EdgeInsets.only(
-                              left: stitchIndex == 0 ? 0 : 8,
+                              right: isLast ? 0 : 8,
                             ),
                             child: _buildStitchCell(stitch, stitchIndex + 1),
                           );
