@@ -76,7 +76,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ..._rows.asMap().entries.map((entry) {
+                    ..._rows.asMap().entries.toList().reversed.map((entry) {
                       final index = entry.key;
                       final row = entry.value;
                       return _buildRow(index, row);
