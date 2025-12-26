@@ -146,6 +146,28 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               color: Colors.black87,
             ),
           ),
+          const Spacer(),
+          GestureDetector(
+            onTap: () {
+              // TODO: 유튜브 링크 연결
+            },
+            child: const Icon(
+              Icons.smart_display_outlined,
+              size: 24,
+              color: Colors.black54,
+            ),
+          ),
+          const SizedBox(width: 16),
+          GestureDetector(
+            onTap: () {
+              // TODO: PDF 기능 연결
+            },
+            child: const Icon(
+              Icons.picture_as_pdf_outlined,
+              size: 24,
+              color: Colors.black54,
+            ),
+          ),
         ],
       ),
     );
