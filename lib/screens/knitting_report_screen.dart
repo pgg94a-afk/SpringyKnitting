@@ -150,16 +150,16 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.end,
-                              children: row.asMap().entries.map((entry) {
-                                final stitchIndex = entry.key;
-                                final stitch = entry.value;
-                                return Padding(
-                                  padding: EdgeInsets.only(
-                                    left: stitchIndex == 0 ? 0 : 8,
+                              children: [
+                                for (var i = 0; i < row.length; i++)
+                                  Padding(
+                                    padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+                                    child: _buildStitchCell(
+                                      row[row.length - 1 - i],
+                                      row.length - i,
+                                    ),
                                   ),
-                                  child: _buildStitchCell(stitch, stitchIndex + 1),
-                                );
-                              }).toList(),
+                              ],
                             ),
                           ),
                         );
