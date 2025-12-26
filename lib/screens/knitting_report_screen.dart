@@ -12,10 +12,37 @@ class KnittingReportScreen extends StatefulWidget {
 class _KnittingReportScreenState extends State<KnittingReportScreen> {
   final List<List<Stitch>> _rows = [[]];
   int _currentRowIndex = 0;
+  final Map<int, ScrollController> _scrollControllers = {};
+
+  ScrollController _getScrollController(int index) {
+    if (!_scrollControllers.containsKey(index)) {
+      _scrollControllers[index] = ScrollController();
+    }
+    return _scrollControllers[index]!;
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _scrollControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   void _addStitch(StitchType type) {
     setState(() {
       _rows[_currentRowIndex].add(Stitch(type));
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final controller = _scrollControllers[_currentRowIndex];
+      if (controller != null && controller.hasClients) {
+        controller.animateTo(
+          controller.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
@@ -141,6 +168,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                   : LayoutBuilder(
                       builder: (context, constraints) {
                         return SingleChildScrollView(
+                          controller: _getScrollController(rowIndex),
                           scrollDirection: Axis.horizontal,
                           reverse: true,
                           padding: const EdgeInsets.all(8),
