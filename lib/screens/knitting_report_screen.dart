@@ -157,22 +157,48 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                 ),
               );
             },
-            child: Image.asset(
-              'assets/icons/ic_yt.png',
-              width: 24,
-              height: 24,
-            ),
+            child: Column(
+              children: [
+                Image.asset(
+                  'assets/icons/ic_yt.png',
+                  width: 36,
+                  height: 36,
+                ),
+                Text(
+                  "Youtube",
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            )
           ),
           const SizedBox(width: 16),
           GestureDetector(
             onTap: () {
               // TODO: PDF 기능 연결
             },
-            child: Image.asset(
-              'assets/icons/ic_pdf.png',
-              width: 24,
-              height: 24,
-            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 6),
+                Image.asset(
+                  'assets/icons/ic_pdf.png',
+                  width: 24,
+                  height: 24,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "PDF",
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            )
           ),
         ],
       ),
