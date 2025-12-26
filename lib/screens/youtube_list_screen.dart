@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../models/youtube_video.dart';
-import 'youtube_player_screen.dart';
 
 class YoutubeListScreen extends StatefulWidget {
   const YoutubeListScreen({super.key});
@@ -11,6 +11,14 @@ class YoutubeListScreen extends StatefulWidget {
 
 class _YoutubeListScreenState extends State<YoutubeListScreen> {
   final List<YoutubeVideo> _videos = [];
+  YoutubeVideo? _currentVideo;
+  YoutubePlayerController? _playerController;
+
+  @override
+  void dispose() {
+    _playerController?.close();
+    super.dispose();
+  }
 
   void _showAddVideoDialog() {
     final urlController = TextEditingController();
@@ -114,6 +122,12 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
 
   void _deleteVideo(int index) {
     final video = _videos[index];
+
+    // 현재 재생 중인 영상을 삭제하면 플레이어 닫기
+    if (_currentVideo?.id == video.id) {
+      _stopVideo();
+    }
+
     setState(() {
       _videos.removeAt(index);
     });
@@ -123,12 +137,33 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
   }
 
   void _playVideo(YoutubeVideo video) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => YoutubePlayerScreen(video: video),
+    // 이미 같은 영상이 재생 중이면 무시
+    if (_currentVideo?.id == video.id) return;
+
+    // 기존 컨트롤러 정리
+    _playerController?.close();
+
+    // 새 컨트롤러 생성
+    _playerController = YoutubePlayerController.fromVideoId(
+      videoId: video.videoId,
+      autoPlay: true,
+      params: const YoutubePlayerParams(
+        showControls: true,
+        showFullscreenButton: true,
       ),
     );
+
+    setState(() {
+      _currentVideo = video;
+    });
+  }
+
+  void _stopVideo() {
+    _playerController?.close();
+    setState(() {
+      _currentVideo = null;
+      _playerController = null;
+    });
   }
 
   @override
@@ -140,6 +175,7 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
+            if (_currentVideo != null) _buildPlayer(),
             Expanded(
               child: _videos.isEmpty
                   ? _buildEmptyState()
@@ -162,7 +198,10 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () {
+              _stopVideo();
+              Navigator.pop(context);
+            },
             child: const Icon(Icons.arrow_back_ios, size: 20),
           ),
           const SizedBox(width: 8),
@@ -172,6 +211,61 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayer() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: YoutubePlayer(
+                controller: _playerController!,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFF0F3),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _currentVideo!.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _stopVideo,
+                  child: const Icon(
+                    Icons.close,
+                    size: 20,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -212,7 +306,7 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
 
   Widget _buildVideoList() {
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
       itemCount: _videos.length,
       itemBuilder: (context, index) {
         final video = _videos[index];
@@ -222,6 +316,8 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
   }
 
   Widget _buildVideoItem(YoutubeVideo video, int index) {
+    final isPlaying = _currentVideo?.id == video.id;
+
     return GestureDetector(
       onTap: () => _playVideo(video),
       child: Container(
@@ -229,6 +325,9 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFFFFF0F3),
           borderRadius: BorderRadius.circular(12),
+          border: isPlaying
+              ? Border.all(color: const Color(0xFFFFB6C1), width: 2)
+              : null,
         ),
         child: Row(
           children: [
@@ -260,8 +359,8 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
                   Positioned.fill(
                     child: Container(
                       color: Colors.black.withOpacity(0.2),
-                      child: const Icon(
-                        Icons.play_circle_fill,
+                      child: Icon(
+                        isPlaying ? Icons.pause_circle_fill : Icons.play_circle_fill,
                         size: 36,
                         color: Colors.white,
                       ),
@@ -275,9 +374,9 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
                 padding: const EdgeInsets.all(12),
                 child: Text(
                   video.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: isPlaying ? FontWeight.bold : FontWeight.w500,
                     color: Colors.black87,
                   ),
                   maxLines: 2,
