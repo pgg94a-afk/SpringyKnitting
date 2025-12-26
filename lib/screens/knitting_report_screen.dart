@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/stitch.dart';
 import '../widgets/stitch_pad.dart';
+import 'youtube_list_screen.dart';
 
 class KnittingReportScreen extends StatefulWidget {
   const KnittingReportScreen({super.key});
@@ -149,7 +150,12 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
           const Spacer(),
           GestureDetector(
             onTap: () {
-              // TODO: 유튜브 링크 연결
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const YoutubeListScreen(),
+                ),
+              );
             },
             child: const Icon(
               Icons.smart_display_outlined,
