@@ -157,10 +157,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                 ),
               );
             },
-            child: const Icon(
-              Icons.smart_display_outlined,
-              size: 24,
-              color: Colors.black54,
+            child: Image.asset(
+              'assets/icons/ic_yt.png',
+              width: 24,
+              height: 24,
             ),
           ),
           const SizedBox(width: 16),
@@ -168,10 +168,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             onTap: () {
               // TODO: PDF 기능 연결
             },
-            child: const Icon(
-              Icons.picture_as_pdf_outlined,
-              size: 24,
-              color: Colors.black54,
+            child: Image.asset(
+              'assets/icons/ic_pdf.png',
+              width: 24,
+              height: 24,
             ),
           ),
         ],
