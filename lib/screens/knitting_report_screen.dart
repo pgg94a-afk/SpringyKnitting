@@ -17,12 +17,19 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   int _currentRowIndex = 0;
   int _currentNavIndex = 0;
   final Map<int, ScrollController> _scrollControllers = {};
+  late final PageController _pageController;
 
   // 기본 버튼 목록 (K, P)
   List<CustomButton> _padButtons = [
     ButtonPresets.knit,
     ButtonPresets.purl,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _currentNavIndex);
+  }
 
   ScrollController _getScrollController(int index) {
     if (!_scrollControllers.containsKey(index)) {
@@ -33,6 +40,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
   @override
   void dispose() {
+    _pageController.dispose();
     for (var controller in _scrollControllers.values) {
       controller.dispose();
     }
@@ -138,7 +146,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
           children: [
             _buildHeader(),
             Expanded(
-              child: _buildCurrentTab(),
+              child: _buildPageView(),
             ),
             if (_currentNavIndex == 0)
               StitchPad(
@@ -157,17 +165,20 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     );
   }
 
-  Widget _buildCurrentTab() {
-    switch (_currentNavIndex) {
-      case 0:
-        return _buildRecordTab();
-      case 1:
-        return _buildVideoTab();
-      case 2:
-        return _buildPatternTab();
-      default:
-        return _buildRecordTab();
-    }
+  Widget _buildPageView() {
+    return PageView(
+      controller: _pageController,
+      onPageChanged: (index) {
+        setState(() {
+          _currentNavIndex = index;
+        });
+      },
+      children: [
+        _buildRecordTab(),
+        _buildVideoTab(),
+        _buildPatternTab(),
+      ],
+    );
   }
 
   Widget _buildRecordTab() {
@@ -254,9 +265,11 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     final isSelected = _currentNavIndex == index;
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _currentNavIndex = index;
-        });
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
