@@ -19,6 +19,7 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   late List<CustomButton> _padButtons;
   CustomButton? _selectedPreset;
   Color _selectedColor = Colors.white;
+  bool _showColorPicker = false;
   final TextEditingController _hexController = TextEditingController();
   final TextEditingController _abbreviationController = TextEditingController();
   final TextEditingController _koreanNameController = TextEditingController();
@@ -81,6 +82,13 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
 
     setState(() {
       _padButtons.add(newButton);
+      // 추가 후 입력 필드 초기화
+      _abbreviationController.clear();
+      _koreanNameController.clear();
+      _selectedPreset = null;
+      _selectedColor = Colors.white;
+      _hexController.text = 'FFFFFF';
+      _showColorPicker = false;
     });
   }
 
@@ -121,15 +129,23 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildPresetSelector(),
+                    // 1. 현재 패드 (상단)
+                    _buildCurrentPadSection(),
                     const SizedBox(height: 20),
+                    // 2. 버튼 미리보기 (중앙)
                     _buildButtonPreview(),
                     const SizedBox(height: 16),
-                    _buildColorSelector(),
-                    const SizedBox(height: 20),
+                    // 3. 버튼추가 버튼
                     _buildAddButton(),
                     const SizedBox(height: 20),
-                    _buildCurrentPadSection(),
+                    // 4. 버튼 선택 + 색상지정 (하단)
+                    _buildPresetSelector(),
+                    const SizedBox(height: 12),
+                    _buildColorToggleButton(),
+                    if (_showColorPicker) ...[
+                      const SizedBox(height: 12),
+                      _buildColorSelector(),
+                    ],
                   ],
                 ),
               ),
@@ -162,58 +178,113 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
     );
   }
 
-  Widget _buildPresetSelector() {
+  Widget _buildCurrentPadSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '버튼 선택',
+          '현재 패드',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
           ),
         ),
+        const SizedBox(height: 4),
+        const Text(
+          '길게 눌러서 위치 변경 | X 버튼으로 삭제',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.black54,
+          ),
+        ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: ButtonPresets.all.map((preset) {
-            final isSelected = _selectedPreset?.id == preset.id;
-            return GestureDetector(
-              onTap: () => _selectPreset(preset),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFFFFB6C1) : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFFFFD1DC),
-                    width: 1,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFFD1DC)),
+          ),
+          child: _padButtons.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      '버튼을 추가해주세요',
+                      style: TextStyle(color: Colors.black54),
+                    ),
                   ),
+                )
+              : ReorderableWrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _padButtons.asMap().entries.map((entry) {
+                    return _buildPadButton(entry.key, entry.value);
+                  }).toList(),
+                  onReorder: _onReorder,
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      preset.abbreviation,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      preset.koreanName,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isSelected ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                  ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPadButton(int index, CustomButton button) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          key: ValueKey(button.id),
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: button.color,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                button.abbreviation,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _getContrastColor(button.color),
                 ),
               ),
-            );
-          }).toList(),
+              Text(
+                button.koreanName,
+                style: TextStyle(
+                  fontSize: 9,
+                  color: _getContrastColor(button.color).withOpacity(0.7),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          top: -6,
+          right: -6,
+          child: GestureDetector(
+            onTap: () => _removeButtonFromPad(index),
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF6B6B),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 12,
+                color: Colors.white,
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -331,12 +402,31 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
     return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
-  Widget _buildColorSelector() {
+  Widget _buildAddButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _addButtonToPad,
+        icon: const Icon(Icons.add),
+        label: const Text('버튼추가'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFFB6C1),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPresetSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '버튼 색상',
+          '버튼 선택',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
@@ -344,52 +434,169 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            const Text('#', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(width: 4),
-            SizedBox(
-              width: 100,
-              child: TextField(
-                controller: _hexController,
-                decoration: InputDecoration(
-                  hintText: 'FFFFFF',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                maxLength: 6,
-                buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
-                onChanged: _updateColorFromHex,
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _showColorPicker(),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ButtonPresets.all.map((preset) {
+            final isSelected = _selectedPreset?.id == preset.id;
+            return GestureDetector(
+              onTap: () => _selectPreset(preset),
               child: Container(
-                width: 40,
-                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: _selectedColor,
+                  color: isSelected ? const Color(0xFFFFB6C1) : Colors.white,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFFD1DC), width: 2),
+                  border: Border.all(
+                    color: const Color(0xFFFFD1DC),
+                    width: 1,
+                  ),
                 ),
-                child: const Icon(Icons.colorize, size: 20, color: Colors.black54),
+                child: Column(
+                  children: [
+                    Text(
+                      preset.abbreviation,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      preset.koreanName,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isSelected ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildColorToggleButton() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _showColorPicker = !_showColorPicker;
+        });
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFFFD1DC)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: _selectedColor,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFFFD1DC)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  '색상지정',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            Icon(
+              _showColorPicker ? Icons.expand_less : Icons.expand_more,
+              color: Colors.black54,
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        _buildColorPalette(),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildColorSelector() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFD1DC)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hex 입력
+          Row(
+            children: [
+              const Text('#', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 4),
+              SizedBox(
+                width: 100,
+                child: TextField(
+                  controller: _hexController,
+                  decoration: InputDecoration(
+                    hintText: 'FFFFFF',
+                    filled: true,
+                    fillColor: const Color(0xFFFFF0F3),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  maxLength: 6,
+                  buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
+                  onChanged: _updateColorFromHex,
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _showAdvancedColorPicker(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFFFF6B6B),
+                        Color(0xFFFFE66D),
+                        Color(0xFF4ECDC4),
+                        Color(0xFF95E1D3),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFFD1DC), width: 2),
+                  ),
+                  child: const Icon(Icons.colorize, size: 20, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // 컬러 팔레트
+          _buildColorPalette(),
+        ],
+      ),
     );
   }
 
@@ -440,13 +647,20 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                 width: isSelected ? 3 : 1,
               ),
             ),
+            child: isSelected
+                ? Icon(
+                    Icons.check,
+                    size: 16,
+                    color: _getContrastColor(color),
+                  )
+                : null,
           ),
         );
       }).toList(),
     );
   }
 
-  void _showColorPicker() {
+  void _showAdvancedColorPicker() {
     showDialog(
       context: context,
       builder: (context) => _ColorPickerDialog(
@@ -458,136 +672,6 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
           });
         },
       ),
-    );
-  }
-
-  Widget _buildAddButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: _addButtonToPad,
-        icon: const Icon(Icons.add),
-        label: const Text('버튼추가'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFFB6C1),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCurrentPadSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '현재 패드',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          '길게 눌러서 위치 변경 | X 버튼으로 삭제',
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.black54,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFFFD1DC)),
-          ),
-          child: _padButtons.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text(
-                      '버튼을 추가해주세요',
-                      style: TextStyle(color: Colors.black54),
-                    ),
-                  ),
-                )
-              : ReorderableWrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _padButtons.asMap().entries.map((entry) {
-                    return _buildPadButton(entry.key, entry.value);
-                  }).toList(),
-                  onReorder: _onReorder,
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPadButton(int index, CustomButton button) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          key: ValueKey(button.id),
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: button.color,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                button.abbreviation,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: _getContrastColor(button.color),
-                ),
-              ),
-              Text(
-                button.koreanName,
-                style: TextStyle(
-                  fontSize: 9,
-                  color: _getContrastColor(button.color).withOpacity(0.7),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        Positioned(
-          top: -6,
-          right: -6,
-          child: GestureDetector(
-            onTap: () => _removeButtonFromPad(index),
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF6B6B),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Icon(
-                Icons.close,
-                size: 12,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -639,7 +723,6 @@ class ReorderableWrap extends StatefulWidget {
 }
 
 class _ReorderableWrapState extends State<ReorderableWrap> {
-  int? _draggingIndex;
   int? _targetIndex;
 
   @override
@@ -667,17 +750,6 @@ class _ReorderableWrapState extends State<ReorderableWrap> {
             opacity: 0.3,
             child: child,
           ),
-          onDragStarted: () {
-            setState(() {
-              _draggingIndex = index;
-            });
-          },
-          onDragEnd: (_) {
-            setState(() {
-              _draggingIndex = null;
-              _targetIndex = null;
-            });
-          },
           child: DragTarget<int>(
             onWillAcceptWithDetails: (details) {
               setState(() {
@@ -714,7 +786,7 @@ class _ReorderableWrapState extends State<ReorderableWrap> {
   }
 }
 
-/// 색상 선택 다이얼로그
+/// 고급 색상 선택 다이얼로그
 class _ColorPickerDialog extends StatefulWidget {
   final Color initialColor;
   final Function(Color) onColorSelected;
@@ -776,12 +848,14 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
             // 색상 슬라이더 (Hue)
             Row(
               children: [
-                const Text('색상', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 40, child: Text('색상', style: TextStyle(fontSize: 12))),
                 Expanded(
                   child: SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       trackHeight: 12,
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                      activeTrackColor: HSVColor.fromAHSV(1, _hue, 1, 1).toColor(),
+                      inactiveTrackColor: Colors.grey[300],
                     ),
                     child: Slider(
                       value: _hue,
@@ -796,12 +870,13 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
             // 채도 슬라이더
             Row(
               children: [
-                const Text('채도', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 40, child: Text('채도', style: TextStyle(fontSize: 12))),
                 Expanded(
                   child: Slider(
                     value: _saturation,
                     min: 0,
                     max: 1,
+                    activeColor: const Color(0xFFFFB6C1),
                     onChanged: (value) => setState(() => _saturation = value),
                   ),
                 ),
@@ -810,12 +885,13 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
             // 명도 슬라이더
             Row(
               children: [
-                const Text('명도', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 40, child: Text('명도', style: TextStyle(fontSize: 12))),
                 Expanded(
                   child: Slider(
                     value: _value,
                     min: 0,
                     max: 1,
+                    activeColor: const Color(0xFFFFB6C1),
                     onChanged: (value) => setState(() => _value = value),
                   ),
                 ),
