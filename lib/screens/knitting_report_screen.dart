@@ -371,7 +371,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             Row(
               children: [
                 Text(
-                  'row ${rowIndex + 1}',
+                  '${rowIndex + 1}단',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

@@ -111,38 +111,14 @@ class _StitchPadState extends State<StitchPad> {
   }
 
   Widget _buildEditButton() {
-    return Center(
-      child: GestureDetector(
-        onTap: _toggleEditMode,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFFFFD1DC),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _isEditMode ? Icons.check : Icons.edit,
-                size: 14,
-                color: _isEditMode ? Colors.white : Colors.black54,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _isEditMode ? '완료' : '편집',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: _isEditMode ? Colors.white : Colors.black54,
-                ),
-              ),
-            ],
-          ),
+    return GestureDetector(
+      onTap: _toggleEditMode,
+      child: Text(
+        _isEditMode ? '완료' : '편집',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.black54,
         ),
       ),
     );
@@ -165,17 +141,10 @@ class _StitchPadState extends State<StitchPad> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 편집 버튼 - 키패드 마지막 열 위에 위치
-            Row(
-              children: [
-                // 처음 2열 만큼 빈 공간
-                SizedBox(width: (buttonSize * 2) + (StitchPad.buttonSpacing * 2)),
-                // 마지막 열 위에 편집 버튼
-                SizedBox(
-                  width: buttonSize,
-                  child: _buildEditButton(),
-                ),
-              ],
+            // 편집 버튼 - 패드 우측 상단에 위치
+            Align(
+              alignment: Alignment.centerRight,
+              child: _buildEditButton(),
             ),
             const SizedBox(height: 8),
             // 메인 영역 - 키패드와 사이드 버튼이 붙어있게
@@ -188,10 +157,12 @@ class _StitchPadState extends State<StitchPad> {
                   child: _buildButtonGrid(buttonSize, StitchPad.gridColumns),
                 ),
                 const SizedBox(width: StitchPad.buttonSpacing),
-                SizedBox(
-                  width: StitchPad.rightSectionWidth,
-                  height: totalHeight,
-                  child: _buildSideButtons(),
+                // 사이드 버튼을 남은 공간에 채움
+                Expanded(
+                  child: SizedBox(
+                    height: totalHeight,
+                    child: _buildSideButtons(),
+                  ),
                 ),
               ],
             ),
