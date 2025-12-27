@@ -11,11 +11,11 @@ class StitchPad extends StatefulWidget {
   final Function(List<CustomButton>) onButtonsReordered;
   final Function(int) onButtonDeleted;
 
-  static const int gridColumns = 3;
   static const int gridRows = 3;
   static const double buttonSpacing = 8.0;
-  static const double minButtonSize = 50.0;
+  static const double minButtonSize = 55.0;
   static const double maxButtonSize = 70.0;
+  static const double rightSectionWidth = 55.0;
 
   const StitchPad({
     super.key,
@@ -156,14 +156,19 @@ class _StitchPadState extends State<StitchPad> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
+        final leftSectionWidth = availableWidth - StitchPad.rightSectionWidth - StitchPad.buttonSpacing;
 
-        final rightSectionWidth = 40.0;
-        final leftSectionWidth = availableWidth - rightSectionWidth - StitchPad.buttonSpacing;
+        // 동적으로 열 수 계산 (3열 또는 4열)
+        int gridColumns = 3;
+        double buttonSize = ((leftSectionWidth - (StitchPad.buttonSpacing * (gridColumns - 1))) / gridColumns);
 
-        final buttonSize = ((leftSectionWidth - (StitchPad.buttonSpacing * (StitchPad.gridColumns - 1))) / StitchPad.gridColumns)
-            .clamp(StitchPad.minButtonSize, StitchPad.maxButtonSize);
+        // 버튼이 maxButtonSize보다 크면 4열로 시도
+        if (buttonSize > StitchPad.maxButtonSize) {
+          gridColumns = 4;
+          buttonSize = ((leftSectionWidth - (StitchPad.buttonSpacing * (gridColumns - 1))) / gridColumns);
+        }
 
-        final actualLeftWidth = (buttonSize * StitchPad.gridColumns) + (StitchPad.buttonSpacing * (StitchPad.gridColumns - 1));
+        buttonSize = buttonSize.clamp(StitchPad.minButtonSize, StitchPad.maxButtonSize);
 
         final totalHeight = (buttonSize * StitchPad.gridRows) + (StitchPad.buttonSpacing * (StitchPad.gridRows - 1));
 
@@ -173,12 +178,12 @@ class _StitchPadState extends State<StitchPad> {
             Expanded(
               child: SizedBox(
                 height: totalHeight,
-                child: _buildButtonGrid(buttonSize),
+                child: _buildButtonGrid(buttonSize, gridColumns),
               ),
             ),
             const SizedBox(width: StitchPad.buttonSpacing),
             SizedBox(
-              width: rightSectionWidth,
+              width: StitchPad.rightSectionWidth,
               height: totalHeight,
               child: _buildSideButtons(),
             ),
@@ -188,23 +193,24 @@ class _StitchPadState extends State<StitchPad> {
     );
   }
 
-  Widget _buildButtonGrid(double buttonSize) {
+  Widget _buildButtonGrid(double buttonSize, int gridColumns) {
     final displayButtons = _previewButtons ?? widget.buttons;
+    final totalSlots = gridColumns * StitchPad.gridRows;
 
     return Column(
       children: List.generate(StitchPad.gridRows, (rowIndex) {
         return Padding(
           padding: EdgeInsets.only(bottom: rowIndex < StitchPad.gridRows - 1 ? StitchPad.buttonSpacing : 0),
           child: Row(
-            children: List.generate(StitchPad.gridColumns, (colIndex) {
-              final buttonIndex = rowIndex * StitchPad.gridColumns + colIndex;
-              final isLast = colIndex == StitchPad.gridColumns - 1;
+            children: List.generate(gridColumns, (colIndex) {
+              final buttonIndex = rowIndex * gridColumns + colIndex;
+              final isLast = colIndex == gridColumns - 1;
 
               return Padding(
                 padding: EdgeInsets.only(right: isLast ? 0 : StitchPad.buttonSpacing),
                 child: buttonIndex < displayButtons.length
                     ? _isEditMode
-                        ? _buildEditableButton(displayButtons[buttonIndex], buttonIndex, buttonSize)
+                        ? _buildEditableButton(displayButtons[buttonIndex], buttonIndex, buttonSize, gridColumns)
                         : _buildStitchButton(displayButtons[buttonIndex], buttonSize)
                     : _buildEmptySlot(buttonSize),
               );
@@ -215,7 +221,7 @@ class _StitchPadState extends State<StitchPad> {
     );
   }
 
-  Widget _buildEditableButton(CustomButton button, int index, double size) {
+  Widget _buildEditableButton(CustomButton button, int index, double size, int gridColumns) {
     final originalIndex = widget.buttons.indexOf(button);
     final isDragging = _draggingIndex != null && originalIndex == _draggingIndex;
 
@@ -422,7 +428,7 @@ class _StitchPadState extends State<StitchPad> {
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: const Color(0xFFFFD1DC),
             width: 1,
@@ -433,13 +439,14 @@ class _StitchPadState extends State<StitchPad> {
           children: [
             Icon(
               Icons.backspace_outlined,
-              size: 24,
+              size: 22,
               color: Color(0xFFFF6B6B),
             ),
+            SizedBox(height: 2),
             Text(
               '삭제',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 color: Colors.black54,
               ),
             ),
@@ -456,7 +463,7 @@ class _StitchPadState extends State<StitchPad> {
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: const Color(0xFFFFD1DC),
             width: 1,
@@ -467,13 +474,14 @@ class _StitchPadState extends State<StitchPad> {
           children: [
             Icon(
               Icons.add,
-              size: 24,
+              size: 22,
               color: Color(0xFFFFB6C1),
             ),
+            SizedBox(height: 2),
             Text(
               '단추가',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 color: Colors.black54,
               ),
             ),
