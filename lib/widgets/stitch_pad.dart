@@ -158,6 +158,8 @@ class _StitchPadState extends State<StitchPad> {
         double buttonSize = ((leftSectionWidth - (StitchPad.buttonSpacing * (StitchPad.gridColumns - 1))) / StitchPad.gridColumns);
         buttonSize = buttonSize.clamp(StitchPad.minButtonSize, StitchPad.maxButtonSize);
 
+        // 실제 키패드 그리드 너비 계산 (버튼이 clamp되면 실제 너비가 달라짐)
+        final actualGridWidth = (buttonSize * StitchPad.gridColumns) + (StitchPad.buttonSpacing * (StitchPad.gridColumns - 1));
         final totalHeight = (buttonSize * StitchPad.gridRows) + (StitchPad.buttonSpacing * (StitchPad.gridRows - 1));
 
         return Column(
@@ -173,18 +175,15 @@ class _StitchPadState extends State<StitchPad> {
                   width: buttonSize,
                   child: _buildEditButton(),
                 ),
-                // 사이드 섹션 너비만큼 빈 공간
-                const SizedBox(width: StitchPad.buttonSpacing),
-                const SizedBox(width: StitchPad.rightSectionWidth),
               ],
             ),
             const SizedBox(height: 8),
-            // 메인 영역
+            // 메인 영역 - 키패드와 사이드 버튼이 붙어있게
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: leftSectionWidth,
+                  width: actualGridWidth,
                   height: totalHeight,
                   child: _buildButtonGrid(buttonSize, StitchPad.gridColumns),
                 ),
