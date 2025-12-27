@@ -157,7 +157,7 @@ class _StitchPadState extends State<StitchPad> {
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
 
-        final rightSectionWidth = 70.0;
+        final rightSectionWidth = 50.0;
         final leftSectionWidth = availableWidth - rightSectionWidth - StitchPad.buttonSpacing;
 
         final buttonSize = ((leftSectionWidth - (StitchPad.buttonSpacing * (StitchPad.gridColumns - 1))) / StitchPad.gridColumns)
@@ -422,7 +422,7 @@ class _StitchPadState extends State<StitchPad> {
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: const Color(0xFFFFD1DC),
             width: 1,
@@ -433,14 +433,14 @@ class _StitchPadState extends State<StitchPad> {
           children: [
             Icon(
               Icons.backspace_outlined,
-              size: 28,
+              size: 20,
               color: Color(0xFFFF6B6B),
             ),
-            SizedBox(height: 4),
+            SizedBox(height: 2),
             Text(
               '삭제',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 color: Colors.black54,
               ),
             ),
@@ -457,7 +457,7 @@ class _StitchPadState extends State<StitchPad> {
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: const Color(0xFFFFD1DC),
             width: 1,
@@ -468,14 +468,14 @@ class _StitchPadState extends State<StitchPad> {
           children: [
             Icon(
               Icons.add,
-              size: 28,
+              size: 20,
               color: Color(0xFFFFB6C1),
             ),
             SizedBox(height: 2),
             Text(
-              '단 추가',
+              '단추가',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 color: Colors.black54,
               ),
             ),
