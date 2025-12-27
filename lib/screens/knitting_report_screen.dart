@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/stitch.dart';
+import '../models/custom_button.dart';
 import '../widgets/stitch_pad.dart';
+import '../widgets/button_settings_dialog.dart';
 import 'youtube_list_screen.dart';
 
 class KnittingReportScreen extends StatefulWidget {
@@ -14,6 +16,12 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   final List<List<Stitch>> _rows = [[]];
   int _currentRowIndex = 0;
   final Map<int, ScrollController> _scrollControllers = {};
+
+  // 기본 버튼 목록 (K, P)
+  List<CustomButton> _padButtons = [
+    ButtonPresets.knit,
+    ButtonPresets.purl,
+  ];
 
   ScrollController _getScrollController(int index) {
     if (!_scrollControllers.containsKey(index)) {
@@ -30,9 +38,9 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     super.dispose();
   }
 
-  void _addStitch(StitchType type) {
+  void _addStitch(CustomButton button) {
     setState(() {
-      _rows[_currentRowIndex].add(Stitch(type));
+      _rows[_currentRowIndex].add(Stitch.fromButton(button));
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -94,6 +102,20 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     });
   }
 
+  void _showButtonSettings() {
+    showDialog(
+      context: context,
+      builder: (context) => ButtonSettingsDialog(
+        currentButtons: _padButtons,
+        onButtonsChanged: (buttons) {
+          setState(() {
+            _padButtons = buttons;
+          });
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -119,9 +141,11 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               ),
             ),
             StitchPad(
-              onStitchTap: _addStitch,
+              buttons: _padButtons,
+              onButtonTap: _addStitch,
               onAddRow: _addRow,
               onDelete: _removeLastStitch,
+              onSettingsTap: _showButtonSettings,
             ),
           ],
         ),
@@ -338,26 +362,31 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: stitch.color,
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFFFFD1DC),
+                width: 1,
+              ),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   stitch.abbreviation,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: _getContrastColor(stitch.color),
                   ),
                 ),
                 Text(
                   stitch.koreanName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 9,
-                    color: Colors.black54,
+                    color: _getContrastColor(stitch.color).withOpacity(0.7),
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -384,5 +413,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         ],
       ),
     );
+  }
+
+  Color _getContrastColor(Color color) {
+    final luminance = color.computeLuminance();
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 }

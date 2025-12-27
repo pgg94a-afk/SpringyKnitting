@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
-import '../models/stitch.dart';
+import '../models/custom_button.dart';
 
 class StitchPad extends StatelessWidget {
-  final Function(StitchType) onStitchTap;
+  final List<CustomButton> buttons;
+  final Function(CustomButton) onButtonTap;
   final VoidCallback onAddRow;
   final VoidCallback onDelete;
+  final VoidCallback onSettingsTap;
 
   const StitchPad({
     super.key,
-    required this.onStitchTap,
+    required this.buttons,
+    required this.onButtonTap,
     required this.onAddRow,
     required this.onDelete,
+    required this.onSettingsTap,
   });
 
   @override
@@ -24,16 +28,7 @@ class StitchPad extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildStitchButton(StitchType.knit),
-              const SizedBox(width: 12),
-              _buildStitchButton(StitchType.purl),
-              const SizedBox(width: 12),
-              _buildDeleteButton(),
-            ],
-          ),
+          _buildButtonsRow(),
           const SizedBox(height: 12),
           _buildAddRowButton(),
         ],
@@ -41,15 +36,32 @@ class StitchPad extends StatelessWidget {
     );
   }
 
-  Widget _buildStitchButton(StitchType type) {
-    final stitch = Stitch(type);
+  Widget _buildButtonsRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ...buttons.map((button) => Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _buildStitchButton(button),
+          )),
+          _buildDeleteButton(),
+          const SizedBox(width: 12),
+          _buildSettingsButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStitchButton(CustomButton button) {
     return GestureDetector(
-      onTap: () => onStitchTap(type),
+      onTap: () => onButtonTap(button),
       child: Container(
         width: 70,
         height: 70,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: button.color,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: const Color(0xFFFFD1DC),
@@ -60,25 +72,31 @@ class StitchPad extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              stitch.abbreviation,
-              style: const TextStyle(
+              button.abbreviation,
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: _getContrastColor(button.color),
               ),
             ),
             const SizedBox(height: 2),
             Text(
-              stitch.koreanName,
-              style: const TextStyle(
+              button.koreanName,
+              style: TextStyle(
                 fontSize: 11,
-                color: Colors.black54,
+                color: _getContrastColor(button.color).withOpacity(0.7),
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
       ),
     );
+  }
+
+  Color _getContrastColor(Color color) {
+    final luminance = color.computeLuminance();
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
   Widget _buildDeleteButton() {
@@ -112,6 +130,46 @@ class StitchPad extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsButton() {
+    return GestureDetector(
+      onTap: onSettingsTap,
+      child: Container(
+        width: 70,
+        height: 70,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFFFD1DC),
+            width: 1,
+          ),
+        ),
+        child: ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [
+              Color(0xFFFF6B6B),
+              Color(0xFFFFE66D),
+              Color(0xFF4ECDC4),
+              Color(0xFF95E1D3),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ).createShader(bounds),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.palette,
+                size: 28,
+                color: Colors.white,
+              ),
+            ],
+          ),
         ),
       ),
     );
