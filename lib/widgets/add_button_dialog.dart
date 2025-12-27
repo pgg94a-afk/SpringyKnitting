@@ -230,7 +230,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
               width: 160,
               height: 160,
               decoration: BoxDecoration(
-                color: _selectedColor.withOpacity(0.9),
+                color: _selectedColor,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: Colors.white.withOpacity(0.6),
@@ -362,8 +362,8 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                           child: Stack(
                             children: [
                               Positioned(
-                                left: (_saturation * width) - 8,
-                                top: ((1 - _value) * svHeight) - 8,
+                                left: ((_saturation * width) - 8).clamp(0.0, width - 16),
+                                top: (((1 - _value) * svHeight) - 8).clamp(0.0, svHeight - 16),
                                 child: Container(
                                   width: 16,
                                   height: 16,
@@ -412,7 +412,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                         child: Stack(
                           children: [
                             Positioned(
-                              left: ((_hue / 360) * width) - 2,
+                              left: (((_hue / 360) * width) - 2).clamp(0.0, width - 4),
                               top: 0,
                               bottom: 0,
                               child: Container(
