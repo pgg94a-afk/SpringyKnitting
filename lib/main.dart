@@ -15,11 +15,12 @@ class SpringyKnitApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFFB6C1),
+          seedColor: const Color(0xFFF1F0EF),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
         fontFamily: 'Pretendard',
+        scaffoldBackgroundColor: const Color(0xFFF1F0EF),
       ),
       home: const HomeScreen(),
     );

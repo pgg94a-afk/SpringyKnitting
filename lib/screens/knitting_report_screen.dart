@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
@@ -18,6 +19,11 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   int _currentNavIndex = 0;
   final Map<int, ScrollController> _scrollControllers = {};
   late final PageController _pageController;
+
+  // Liquid Glass 색상 정의
+  static const Color _glassBackground = Color(0xFFF1F0EF);
+  static const Color _accentColor = Color(0xFF6B7280);
+  static const Color _selectedAccent = Color(0xFF3B82F6);
 
   // 기본 버튼 목록 (K, P)
   List<CustomButton> _padButtons = [
@@ -139,7 +145,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _glassBackground,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,10 +211,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
           Icon(
             Icons.grid_on,
             size: 64,
-            color: const Color(0xFFFFB6C1).withOpacity(0.5),
+            color: _accentColor.withOpacity(0.4),
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             '도안 기능 준비 중',
             style: TextStyle(
               fontSize: 18,
@@ -216,7 +222,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             '곧 만나요!',
             style: TextStyle(
               fontSize: 14,
@@ -235,56 +241,77 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       (Icons.grid_on, '도안'),
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.7),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withOpacity(0.9),
+                width: 1,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth / 3;
-              const indicatorWidth = 72.0;
-              final indicatorLeft =
-                  (itemWidth * _currentNavIndex) + (itemWidth - indicatorWidth) / 2;
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final itemWidth = constraints.maxWidth / 3;
+                  const indicatorWidth = 72.0;
+                  final indicatorLeft =
+                      (itemWidth * _currentNavIndex) + (itemWidth - indicatorWidth) / 2;
 
-              return Stack(
-                children: [
-                  // 슬라이딩 인디케이터
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOutCubic,
-                    left: indicatorLeft,
-                    top: 0,
-                    bottom: 0,
-                    width: indicatorWidth,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFB6C1).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                  ),
-                  // 네비게이션 아이템들
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  return Stack(
                     children: [
-                      for (int i = 0; i < navItems.length; i++)
-                        _buildNavItem(i, navItems[i].$1, navItems[i].$2),
+                      // 슬라이딩 인디케이터
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        left: indicatorLeft,
+                        top: 0,
+                        bottom: 0,
+                        width: indicatorWidth,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _selectedAccent.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _selectedAccent.withOpacity(0.2),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // 네비게이션 아이템들
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          for (int i = 0; i < navItems.length; i++)
+                            _buildNavItem(i, navItems[i].$1, navItems[i].$2),
+                        ],
+                      ),
                     ],
-                  ),
-                ],
-              );
-            },
+                  );
+                },
+              ),
+            ),
           ),
         ),
       ),
@@ -312,7 +339,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                 icon,
                 key: ValueKey('$index-$isSelected'),
                 size: 24,
-                color: isSelected ? const Color(0xFFFFB6C1) : Colors.black38,
+                color: isSelected ? _selectedAccent : Colors.black38,
               ),
             ),
             const SizedBox(height: 4),
@@ -321,7 +348,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? const Color(0xFFFFB6C1) : Colors.black38,
+                color: isSelected ? _selectedAccent : Colors.black38,
               ),
             ),
           ],
@@ -337,9 +364,26 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back_ios, size: 20),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.8),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(Icons.arrow_back_ios_new, size: 18),
+                ),
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           const Text(
             'SpringyKnit',
             style: TextStyle(
@@ -429,45 +473,63 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            Container(
-              height: 66,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF0F3),
-                borderRadius: BorderRadius.circular(12),
-                border: isCurrentRow
-                    ? Border.all(color: const Color(0xFFFFB6C1), width: 2)
-                    : null,
-              ),
-              child: row.isEmpty
-                  ? null
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        return SingleChildScrollView(
-                          controller: _getScrollController(rowIndex),
-                          scrollDirection: Axis.horizontal,
-                          reverse: true,
-                          padding: const EdgeInsets.all(8),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minWidth: constraints.maxWidth - 16,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                for (var i = 0; i < row.length; i++)
-                                  Padding(
-                                    padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
-                                    child: _buildStitchCell(
-                                      row[row.length - 1 - i],
-                                      row.length - i,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Container(
+                  height: 66,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(isCurrentRow ? 0.7 : 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isCurrentRow
+                          ? _selectedAccent.withOpacity(0.5)
+                          : Colors.white.withOpacity(0.8),
+                      width: isCurrentRow ? 2 : 1.5,
                     ),
+                    boxShadow: isCurrentRow
+                        ? [
+                            BoxShadow(
+                              color: _selectedAccent.withOpacity(0.1),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: row.isEmpty
+                      ? null
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              controller: _getScrollController(rowIndex),
+                              scrollDirection: Axis.horizontal,
+                              reverse: true,
+                              padding: const EdgeInsets.all(8),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: constraints.maxWidth - 16,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    for (var i = 0; i < row.length; i++)
+                                      Padding(
+                                        padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+                                        child: _buildStitchCell(
+                                          row[row.length - 1 - i],
+                                          row.length - i,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
             ),
           ],
         ),
@@ -482,37 +544,43 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: stitch.color,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: const Color(0xFFFFD1DC),
-                width: 1,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: stitch.color.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.6),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      stitch.abbreviation,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _getContrastColor(stitch.color),
+                      ),
+                    ),
+                    Text(
+                      stitch.koreanName,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: _getContrastColor(stitch.color).withOpacity(0.7),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  stitch.abbreviation,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: _getContrastColor(stitch.color),
-                  ),
-                ),
-                Text(
-                  stitch.koreanName,
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: _getContrastColor(stitch.color).withOpacity(0.7),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
             ),
           ),
           Positioned(
@@ -521,8 +589,15 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFB6C1),
+                color: _accentColor,
                 borderRadius: BorderRadius.circular(6),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Text(
                 '$number',

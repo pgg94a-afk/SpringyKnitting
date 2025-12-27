@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/custom_button.dart';
@@ -18,15 +19,21 @@ class ButtonSettingsDialog extends StatefulWidget {
 
 class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   late List<CustomButton> _padButtons;
-  List<CustomButton>? _previewButtons; // 드래그 중 미리보기용
+  List<CustomButton>? _previewButtons;
   int? _draggingIndex;
   int? _targetIndex;
 
   CustomButton? _selectedPreset;
-  Color _selectedColor = Colors.white;
+  Color _selectedColor = const Color(0xFFE5E4E3);
   final TextEditingController _hexController = TextEditingController();
   final TextEditingController _abbreviationController = TextEditingController();
   final TextEditingController _koreanNameController = TextEditingController();
+
+  // Liquid Glass 색상 정의
+  static const Color _glassBackground = Color(0xFFF1F0EF);
+  static const Color _accentColor = Color(0xFF6B7280);
+  static const Color _selectedAccent = Color(0xFF3B82F6);
+  static const Color _deleteColor = Color(0xFFEF4444);
 
   static const double buttonSize = 55.0;
   static const double buttonSpacing = 8.0;
@@ -37,7 +44,7 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   void initState() {
     super.initState();
     _padButtons = List.from(widget.currentButtons);
-    _hexController.text = 'FFFFFF';
+    _hexController.text = 'E5E4E3';
   }
 
   @override
@@ -75,7 +82,12 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   void _addButtonToPad() {
     if (_abbreviationController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('버튼 약자를 입력해주세요')),
+        SnackBar(
+          content: const Text('버튼 약자를 입력해주세요'),
+          backgroundColor: _accentColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
       return;
     }
@@ -94,8 +106,8 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
       _abbreviationController.clear();
       _koreanNameController.clear();
       _selectedPreset = null;
-      _selectedColor = Colors.white;
-      _hexController.text = 'FFFFFF';
+      _selectedColor = const Color(0xFFE5E4E3);
+      _hexController.text = 'E5E4E3';
     });
   }
 
@@ -105,7 +117,6 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
     });
   }
 
-  // 드래그 시작
   void _onDragStart(int index) {
     HapticFeedback.mediumImpact();
     setState(() {
@@ -115,21 +126,18 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
     });
   }
 
-  // 드래그 중 타겟 위치 업데이트 (실시간 미리보기)
   void _onDragUpdate(int newTargetIndex) {
     if (_draggingIndex == null || newTargetIndex == _targetIndex) return;
     if (newTargetIndex < 0 || newTargetIndex >= _padButtons.length) return;
 
     setState(() {
       _targetIndex = newTargetIndex;
-      // 미리보기 리스트 재구성
       _previewButtons = List.from(_padButtons);
       final item = _previewButtons!.removeAt(_draggingIndex!);
       _previewButtons!.insert(newTargetIndex, item);
     });
   }
 
-  // 드래그 완료
   void _onDragEnd(bool accepted) {
     if (_draggingIndex != null && _targetIndex != null && _targetIndex != _draggingIndex) {
       setState(() {
@@ -144,7 +152,6 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
     });
   }
 
-  // 드래그 취소
   void _onDragCancel() {
     setState(() {
       _draggingIndex = null;
@@ -156,38 +163,58 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFFFFF0F3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 16),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildCurrentPadSection(),
-                    const SizedBox(height: 20),
-                    _buildButtonPreview(),
-                    const SizedBox(height: 16),
-                    _buildAddButton(),
-                    const SizedBox(height: 20),
-                    _buildPresetSelector(),
-                  ],
-                ),
-              ),
+      backgroundColor: Colors.transparent,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
             ),
-            const SizedBox(height: 16),
-            _buildSaveButton(),
-          ],
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.9),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildCurrentPadSection(),
+                        const SizedBox(height: 20),
+                        _buildButtonPreview(),
+                        const SizedBox(height: 16),
+                        _buildAddButton(),
+                        const SizedBox(height: 20),
+                        _buildPresetSelector(),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildSaveButton(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -207,14 +234,20 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
         ),
         GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: const Icon(Icons.close, color: Colors.black54),
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.close, color: Colors.black54, size: 20),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildCurrentPadSection() {
-    // 드래그 중이면 미리보기 리스트, 아니면 실제 리스트
     final displayButtons = _previewButtons ?? _padButtons;
 
     return Column(
@@ -237,15 +270,24 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFFFD1DC)),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.8),
+                  width: 1.5,
+                ),
+              ),
+              child: _buildPadGrid(displayButtons),
+            ),
           ),
-          child: _buildPadGrid(displayButtons),
         ),
       ],
     );
@@ -281,7 +323,6 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 왼쪽: 버튼 그리드
         Expanded(
           child: Column(
             children: List.generate(rowCount, (rowIndex) {
@@ -296,7 +337,6 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                     }
 
                     final button = displayButtons[buttonIndex];
-                    // 실제 인덱스 찾기 (미리보기에서의 위치가 아닌 원본 인덱스)
                     final originalIndex = _padButtons.indexOf(button);
                     final isDragging = _draggingIndex != null && originalIndex == _draggingIndex;
                     final isTargetPosition = _previewButtons != null && buttonIndex == _targetIndex;
@@ -320,7 +360,6 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
           ),
         ),
         const SizedBox(width: buttonSpacing),
-        // 오른쪽: 삭제/세팅 버튼
         SizedBox(
           width: sideButtonWidth,
           height: totalHeight,
@@ -343,14 +382,14 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
       feedback: Material(
         color: Colors.transparent,
         elevation: 8,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           width: buttonSize * 1.1,
           height: buttonSize * 1.1,
           decoration: BoxDecoration(
             color: button.color,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFFFB6C1), width: 2),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _selectedAccent, width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.3),
@@ -362,15 +401,20 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
           child: _buildButtonContent(button),
         ),
       ),
-      childWhenDragging: Container(
-        height: buttonSize,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFB6C1).withOpacity(0.3),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: const Color(0xFFFFB6C1),
-            width: 2,
-            style: BorderStyle.solid,
+      childWhenDragging: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            height: buttonSize,
+            decoration: BoxDecoration(
+              color: _selectedAccent.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _selectedAccent.withOpacity(0.5),
+                width: 2,
+              ),
+            ),
           ),
         ),
       ),
@@ -384,9 +428,7 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
           }
           return details.data != originalIndex;
         },
-        onAcceptWithDetails: (details) {
-          // 드래그 완료는 onDragEnd에서 처리
-        },
+        onAcceptWithDetails: (details) {},
         onLeave: (_) {},
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
@@ -396,9 +438,9 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
             curve: Curves.easeOutCubic,
             height: buttonSize,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
               border: isHovering || isTargetPosition
-                  ? Border.all(color: const Color(0xFFFFB6C1), width: 2)
+                  ? Border.all(color: _selectedAccent, width: 2)
                   : null,
             ),
             child: Stack(
@@ -407,15 +449,24 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                 AnimatedOpacity(
                   duration: const Duration(milliseconds: 200),
                   opacity: isDragging ? 0.0 : 1.0,
-                  child: Container(
-                    width: double.infinity,
-                    height: buttonSize,
-                    decoration: BoxDecoration(
-                      color: button.color,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                      child: Container(
+                        width: double.infinity,
+                        height: buttonSize,
+                        decoration: BoxDecoration(
+                          color: button.color.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.6),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: _buildButtonContent(button),
+                      ),
                     ),
-                    child: _buildButtonContent(button),
                   ),
                 ),
                 if (!isDragging)
@@ -428,9 +479,16 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                         width: 20,
                         height: 20,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF6B6B),
+                          color: _deleteColor,
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _deleteColor.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: const Icon(
                           Icons.close,
@@ -488,71 +546,88 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
     return Column(
       children: [
         Expanded(
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
-            ),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.backspace_outlined,
-                  size: 20,
-                  color: Color(0xFFFF6B6B),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  '삭제',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: Colors.black54,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.8),
+                    width: 1.5,
                   ),
                 ),
-              ],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.backspace_outlined,
+                      size: 20,
+                      color: _deleteColor,
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      '삭제',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
         const SizedBox(height: buttonSpacing),
         Expanded(
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
-            ),
-            child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [
-                  Color(0xFFFF6B6B),
-                  Color(0xFFFFE66D),
-                  Color(0xFF4ECDC4),
-                  Color(0xFF95E1D3),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ).createShader(bounds),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.palette,
-                    size: 20,
-                    color: Colors.white,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.8),
+                    width: 1.5,
                   ),
-                  SizedBox(height: 2),
-                  Text(
-                    '설정',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                    ),
+                ),
+                child: ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: [
+                      _selectedAccent,
+                      const Color(0xFF8B5CF6),
+                      const Color(0xFFEC4899),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ).createShader(bounds),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.palette,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        '설정',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -584,14 +659,18 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                 decoration: InputDecoration(
                   hintText: '약자 (최대 5자)',
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Colors.white.withOpacity(0.6),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.8)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.8)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _selectedAccent),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
@@ -607,14 +686,18 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                 decoration: InputDecoration(
                   hintText: '한글명 (최대 8자)',
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Colors.white.withOpacity(0.6),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.8)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.8)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _selectedAccent),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
@@ -627,95 +710,106 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: _selectedColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFFFD1DC),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        _abbreviationController.text.isEmpty
-                            ? '?'
-                            : _abbreviationController.text,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: _getContrastColor(_selectedColor),
-                        ),
-                      ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: _selectedColor.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.6),
+                      width: 2,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  if (_koreanNameController.text.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          _koreanNameController.text,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _getContrastColor(_selectedColor).withOpacity(0.7),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _abbreviationController.text.isEmpty
+                                ? '?'
+                                : _abbreviationController.text,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: _getContrastColor(_selectedColor),
+                            ),
                           ),
-                          maxLines: 1,
                         ),
                       ),
-                    ),
-                ],
+                      if (_koreanNameController.text.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _koreanNameController.text,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: _getContrastColor(_selectedColor).withOpacity(0.7),
+                              ),
+                              maxLines: 1,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 16),
             GestureDetector(
               onTap: _showColorPickerDialog,
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFFF6B6B),
-                      Color(0xFFFFE66D),
-                      Color(0xFF4ECDC4),
-                      Color(0xFF95E1D3),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFFFD1DC),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          _selectedAccent.withOpacity(0.8),
+                          const Color(0xFF8B5CF6).withOpacity(0.8),
+                          const Color(0xFFEC4899).withOpacity(0.8),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.6),
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.palette,
-                  size: 28,
-                  color: Colors.white,
+                    child: const Icon(
+                      Icons.palette,
+                      size: 28,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -753,11 +847,12 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
         icon: const Icon(Icons.add),
         label: const Text('버튼추가'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFFB6C1),
+          backgroundColor: _selectedAccent,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),
@@ -784,34 +879,44 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
             final isSelected = _selectedPreset?.id == preset.id;
             return GestureDetector(
               onTap: () => _selectPreset(preset),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFFFFB6C1) : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFFFFD1DC),
-                    width: 1,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? _selectedAccent.withOpacity(0.9)
+                          : Colors.white.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? _selectedAccent.withOpacity(0.3)
+                            : Colors.white.withOpacity(0.8),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          preset.abbreviation,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          preset.koreanName,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isSelected ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      preset.abbreviation,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      preset.koreanName,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isSelected ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             );
@@ -830,11 +935,12 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
           Navigator.pop(context);
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFFB6C1),
+          backgroundColor: _selectedAccent,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
         child: const Text(
@@ -870,27 +976,29 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
   late double _value;
   late TextEditingController _hexController;
 
+  static const Color _selectedAccent = Color(0xFF3B82F6);
+
   static const List<Color> _paletteColors = [
     Colors.white,
-    Color(0xFFFFF5E6),
-    Color(0xFFFFE4E1),
+    Color(0xFFF1F0EF),
+    Color(0xFFE5E4E3),
     Color(0xFFE6E6FA),
     Color(0xFFE0FFFF),
     Color(0xFFE8F5E9),
     Color(0xFFFFF8DC),
-    Color(0xFFFFC0CB),
-    Color(0xFFFFB6C1),
+    Color(0xFFFFE4E1),
     Color(0xFFDDA0DD),
     Color(0xFFADD8E6),
     Color(0xFF98FB98),
     Color(0xFFFFDAB9),
     Color(0xFFF0E68C),
     Color(0xFFD3D3D3),
-    Color(0xFFFF6B6B),
-    Color(0xFF4ECDC4),
-    Color(0xFFFFE66D),
-    Color(0xFF95E1D3),
-    Color(0xFFF38181),
+    Color(0xFF3B82F6),
+    Color(0xFF10B981),
+    Color(0xFFF59E0B),
+    Color(0xFFEF4444),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
   ];
 
   @override
@@ -957,204 +1065,272 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFFFFF0F3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '색상 선택',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.close, color: Colors.black54),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: _selectedColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFFD1DC), width: 2),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Row(
-                    children: [
-                      const Text('#', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: TextField(
-                          controller: _hexController,
-                          decoration: InputDecoration(
-                            hintText: 'FFFFFF',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                          maxLength: 6,
-                          buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
-                          onChanged: _updateFromHex,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+      backgroundColor: Colors.transparent,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.9),
+                width: 1.5,
               ),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _paletteColors.map((color) {
-                  final isSelected = _selectedColor.value == color.value;
-                  return GestureDetector(
-                    onTap: () => _selectPaletteColor(color),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: isSelected ? const Color(0xFFFFB6C1) : const Color(0xFFFFD1DC),
-                          width: isSelected ? 3 : 1,
-                        ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '색상 선택',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
-                      child: isSelected
-                          ? Icon(Icons.check, size: 16, color: _getContrastColor(color))
-                          : null,
                     ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const SizedBox(width: 40, child: Text('색상', style: TextStyle(fontSize: 12))),
-                      Expanded(
-                        child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            trackHeight: 12,
-                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                            activeTrackColor: HSVColor.fromAHSV(1, _hue, 1, 1).toColor(),
-                            inactiveTrackColor: Colors.grey[300],
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.close, color: Colors.black54, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: _selectedColor,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.8),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          child: Slider(
-                            value: _hue,
-                            min: 0,
-                            max: 360,
-                            onChanged: (value) {
-                              _hue = value;
-                              _updateFromHSV();
-                            },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Text('#', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: TextField(
+                              controller: _hexController,
+                              decoration: InputDecoration(
+                                hintText: 'FFFFFF',
+                                filled: true,
+                                fillColor: Colors.white.withOpacity(0.6),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.white.withOpacity(0.8)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.white.withOpacity(0.8)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: _selectedAccent),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              maxLength: 6,
+                              buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
+                              onChanged: _updateFromHex,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const SizedBox(width: 40, child: Text('채도', style: TextStyle(fontSize: 12))),
-                      Expanded(
-                        child: Slider(
-                          value: _saturation,
-                          min: 0,
-                          max: 1,
-                          activeColor: const Color(0xFFFFB6C1),
-                          onChanged: (value) {
-                            _saturation = value;
-                            _updateFromHSV();
-                          },
-                        ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const SizedBox(width: 40, child: Text('명도', style: TextStyle(fontSize: 12))),
-                      Expanded(
-                        child: Slider(
-                          value: _value,
-                          min: 0,
-                          max: 1,
-                          activeColor: const Color(0xFFFFB6C1),
-                          onChanged: (value) {
-                            _value = value;
-                            _updateFromHSV();
-                          },
-                        ),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _paletteColors.map((color) {
+                          final isSelected = _selectedColor.value == color.value;
+                          return GestureDetector(
+                            onTap: () => _selectPaletteColor(color),
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: color,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSelected ? _selectedAccent : Colors.white.withOpacity(0.8),
+                                  width: isSelected ? 3 : 1.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: isSelected
+                                  ? Icon(Icons.check, size: 16, color: _getContrastColor(color))
+                                  : null,
+                            ),
+                          );
+                        }).toList(),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  widget.onColorSelected(_selectedColor);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFB6C1),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
-                child: const Text(
-                  '선택',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const SizedBox(width: 40, child: Text('색상', style: TextStyle(fontSize: 12))),
+                              Expanded(
+                                child: SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    trackHeight: 12,
+                                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                                    activeTrackColor: HSVColor.fromAHSV(1, _hue, 1, 1).toColor(),
+                                    inactiveTrackColor: Colors.grey[300],
+                                    overlayColor: _selectedAccent.withOpacity(0.2),
+                                  ),
+                                  child: Slider(
+                                    value: _hue,
+                                    min: 0,
+                                    max: 360,
+                                    onChanged: (value) {
+                                      _hue = value;
+                                      _updateFromHSV();
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const SizedBox(width: 40, child: Text('채도', style: TextStyle(fontSize: 12))),
+                              Expanded(
+                                child: Slider(
+                                  value: _saturation,
+                                  min: 0,
+                                  max: 1,
+                                  activeColor: _selectedAccent,
+                                  onChanged: (value) {
+                                    _saturation = value;
+                                    _updateFromHSV();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const SizedBox(width: 40, child: Text('명도', style: TextStyle(fontSize: 12))),
+                              Expanded(
+                                child: Slider(
+                                  value: _value,
+                                  min: 0,
+                                  max: 1,
+                                  activeColor: _selectedAccent,
+                                  onChanged: (value) {
+                                    _value = value;
+                                    _updateFromHSV();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      widget.onColorSelected(_selectedColor);
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _selectedAccent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      '선택',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

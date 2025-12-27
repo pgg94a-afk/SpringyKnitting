@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/custom_button.dart';
@@ -41,6 +42,12 @@ class _StitchPadState extends State<StitchPad> {
   int? _draggingIndex;
   int? _targetIndex;
   List<CustomButton>? _previewButtons;
+
+  // Liquid Glass 색상 정의
+  static const Color _glassBackground = Color(0xFFF1F0EF);
+  static const Color _glassBorder = Color(0xFFE5E4E3);
+  static const Color _accentColor = Color(0xFF6B7280);
+  static const Color _deleteColor = Color(0xFFEF4444);
 
   void _toggleEditMode() {
     setState(() {
@@ -108,21 +115,40 @@ class _StitchPadState extends State<StitchPad> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, _isCollapsed ? 8 : 16),
-      decoration: const BoxDecoration(
-        color: Color(0xFFFFF0F3),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildHeaderButtons(),
-          if (!_isCollapsed) ...[
-            const SizedBox(height: 8),
-            _buildKeypadSection(),
-          ],
-        ],
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, _isCollapsed ? 8 : 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.7),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withOpacity(0.9),
+                width: 1.5,
+              ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeaderButtons(),
+              if (!_isCollapsed) ...[
+                const SizedBox(height: 8),
+                _buildKeypadSection(),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -135,34 +161,42 @@ class _StitchPadState extends State<StitchPad> {
         if (!_isCollapsed)
           GestureDetector(
             onTap: _toggleEditMode,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFFFD1DC),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _isEditMode ? Icons.check : Icons.edit,
-                    size: 14,
-                    color: _isEditMode ? Colors.white : Colors.black54,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _isEditMode ? '완료' : '편집',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: _isEditMode ? Colors.white : Colors.black54,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _isEditMode
+                        ? _accentColor.withOpacity(0.9)
+                        : Colors.white.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.8),
+                      width: 1,
                     ),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _isEditMode ? Icons.check : Icons.edit,
+                        size: 14,
+                        color: _isEditMode ? Colors.white : Colors.black54,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _isEditMode ? '완료' : '편집',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: _isEditMode ? Colors.white : Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -170,34 +204,40 @@ class _StitchPadState extends State<StitchPad> {
         // 접기/펼치기 버튼
         GestureDetector(
           onTap: _toggleCollapse,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFFFFD1DC),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _isCollapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  size: 16,
-                  color: Colors.black54,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _isCollapsed ? '펼치기' : '접기',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black54,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.8),
+                    width: 1,
                   ),
                 ),
-              ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isCollapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: Colors.black54,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _isCollapsed ? '펼치기' : '접기',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -280,14 +320,14 @@ class _StitchPadState extends State<StitchPad> {
       feedback: Material(
         color: Colors.transparent,
         elevation: 8,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           width: size * 1.1,
           height: size * 1.1,
           decoration: BoxDecoration(
             color: button.color,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFFFB6C1), width: 2),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _accentColor, width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.3),
@@ -299,15 +339,21 @@ class _StitchPadState extends State<StitchPad> {
           child: _buildButtonContent(button, size),
         ),
       ),
-      childWhenDragging: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFB6C1).withOpacity(0.3),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFFFFB6C1),
-            width: 2,
+      childWhenDragging: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: _accentColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _accentColor.withOpacity(0.5),
+                width: 2,
+              ),
+            ),
           ),
         ),
       ),
@@ -329,15 +375,24 @@ class _StitchPadState extends State<StitchPad> {
               AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
                 opacity: isDragging ? 0.0 : 1.0,
-                child: Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    color: button.color,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      width: size,
+                      height: size,
+                      decoration: BoxDecoration(
+                        color: button.color.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.6),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: _buildButtonContent(button, size),
+                    ),
                   ),
-                  child: _buildButtonContent(button, size),
                 ),
               ),
               if (!isDragging)
@@ -350,9 +405,16 @@ class _StitchPadState extends State<StitchPad> {
                       width: 22,
                       height: 22,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF6B6B),
+                        color: _deleteColor,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _deleteColor.withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: const Icon(
                         Icons.close,
@@ -409,18 +471,31 @@ class _StitchPadState extends State<StitchPad> {
   Widget _buildStitchButton(CustomButton button, double size) {
     return GestureDetector(
       onTap: () => widget.onButtonTap(button),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: button.color,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFFFFD1DC),
-            width: 1,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: button.color.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.6),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: _buildButtonContent(button, size),
           ),
         ),
-        child: _buildButtonContent(button, size),
       ),
     );
   }
@@ -428,23 +503,29 @@ class _StitchPadState extends State<StitchPad> {
   Widget _buildEmptySlot(double size) {
     return GestureDetector(
       onTap: widget.onEmptySlotTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFFFFD1DC).withOpacity(0.5),
-            width: 1,
-            style: BorderStyle.solid,
-          ),
-        ),
-        child: Center(
-          child: Icon(
-            Icons.add,
-            size: size * 0.4,
-            color: const Color(0xFFFFB6C1).withOpacity(0.6),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.5),
+                width: 1.5,
+                style: BorderStyle.solid,
+              ),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.add,
+                size: size * 0.4,
+                color: _accentColor.withOpacity(0.5),
+              ),
+            ),
           ),
         ),
       ),
@@ -475,33 +556,39 @@ class _StitchPadState extends State<StitchPad> {
   Widget _buildDeleteButton() {
     return GestureDetector(
       onTap: widget.onDelete,
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: const Color(0xFFFFD1DC),
-            width: 1,
-          ),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.backspace_outlined,
-              size: 22,
-              color: Color(0xFFFF6B6B),
-            ),
-            SizedBox(height: 2),
-            Text(
-              '삭제',
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.black54,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.8),
+                width: 1.5,
               ),
             ),
-          ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.backspace_outlined,
+                  size: 22,
+                  color: _deleteColor,
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  '삭제',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -510,33 +597,39 @@ class _StitchPadState extends State<StitchPad> {
   Widget _buildAddRowButton() {
     return GestureDetector(
       onTap: widget.onAddRow,
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: const Color(0xFFFFD1DC),
-            width: 1,
-          ),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.add,
-              size: 22,
-              color: Color(0xFFFFB6C1),
-            ),
-            SizedBox(height: 2),
-            Text(
-              '단추가',
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.black54,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.8),
+                width: 1.5,
               ),
             ),
-          ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.add,
+                  size: 22,
+                  color: _accentColor,
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  '단추가',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
