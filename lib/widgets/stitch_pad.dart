@@ -433,13 +433,13 @@ class _StitchPadState extends State<StitchPad> {
           children: [
             Icon(
               Icons.backspace_outlined,
-              size: 18,
+              size: 24,
               color: Color(0xFFFF6B6B),
             ),
             Text(
               '삭제',
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 12,
                 color: Colors.black54,
               ),
             ),
@@ -467,13 +467,13 @@ class _StitchPadState extends State<StitchPad> {
           children: [
             Icon(
               Icons.add,
-              size: 18,
+              size: 24,
               color: Color(0xFFFFB6C1),
             ),
             Text(
               '단추가',
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 12,
                 color: Colors.black54,
               ),
             ),
