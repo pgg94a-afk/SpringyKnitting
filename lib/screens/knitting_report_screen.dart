@@ -305,31 +305,6 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               color: Colors.black87,
             ),
           ),
-          const Spacer(),
-          GestureDetector(
-            onTap: () {
-              // TODO: PDF 기능 연결
-            },
-            child: Column(
-              children: [
-                const SizedBox(height: 6),
-                Image.asset(
-                  'assets/icons/ic_pdf.png',
-                  width: 24,
-                  height: 24,
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  "PDF",
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
