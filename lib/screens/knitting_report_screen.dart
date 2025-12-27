@@ -23,7 +23,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   // Liquid Glass 색상 정의
   static const Color _glassBackground = Color(0xFFF1F0EF);
   static const Color _accentColor = Color(0xFF6B7280);
-  static const Color _selectedAccent = Color(0xFF3B82F6);
+  static const Color _selectedAccent = Color(0xFF6B7280);
 
   // 기본 버튼 목록 (K, P)
   List<CustomButton> _padButtons = [
