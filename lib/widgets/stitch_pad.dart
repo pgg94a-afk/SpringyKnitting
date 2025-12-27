@@ -170,17 +170,17 @@ class _StitchPadState extends State<StitchPad> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: actualLeftWidth,
-              height: totalHeight,
-              child: _buildButtonGrid(buttonSize),
-            ),
-            const SizedBox(width: StitchPad.buttonSpacing),
             Expanded(
               child: SizedBox(
                 height: totalHeight,
-                child: _buildSideButtons(),
+                child: _buildButtonGrid(buttonSize),
               ),
+            ),
+            const SizedBox(width: StitchPad.buttonSpacing),
+            SizedBox(
+              width: rightSectionWidth,
+              height: totalHeight,
+              child: _buildSideButtons(),
             ),
           ],
         );
