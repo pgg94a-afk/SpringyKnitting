@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/custom_button.dart';
 
 class ButtonSettingsDialog extends StatefulWidget {
@@ -22,6 +23,9 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   final TextEditingController _hexController = TextEditingController();
   final TextEditingController _abbreviationController = TextEditingController();
   final TextEditingController _koreanNameController = TextEditingController();
+
+  static const double buttonSize = 60.0;
+  static const double buttonSpacing = 8.0;
 
   @override
   void initState() {
@@ -81,7 +85,6 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
 
     setState(() {
       _padButtons.add(newButton);
-      // 추가 후 입력 필드 초기화
       _abbreviationController.clear();
       _koreanNameController.clear();
       _selectedPreset = null;
@@ -98,7 +101,7 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
 
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
-      if (newIndex > oldIndex) {
+      if (oldIndex < newIndex) {
         newIndex -= 1;
       }
       final item = _padButtons.removeAt(oldIndex);
@@ -127,16 +130,12 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 1. 현재 패드 (상단)
                     _buildCurrentPadSection(),
                     const SizedBox(height: 20),
-                    // 2. 버튼 미리보기 (중앙)
                     _buildButtonPreview(),
                     const SizedBox(height: 16),
-                    // 3. 버튼추가 버튼
                     _buildAddButton(),
                     const SizedBox(height: 20),
-                    // 4. 버튼 선택 (하단)
                     _buildPresetSelector(),
                   ],
                 ),
@@ -199,86 +198,233 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFFFFD1DC)),
           ),
-          child: _padButtons.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text(
-                      '버튼을 추가해주세요',
-                      style: TextStyle(color: Colors.black54),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final availableWidth = constraints.maxWidth;
+              final columnCount = ((availableWidth + buttonSpacing) / (buttonSize + buttonSpacing)).floor();
+              final effectiveColumnCount = columnCount > 0 ? columnCount : 1;
+
+              // 모든 버튼: 사용자 버튼 + 삭제 + 세팅
+              final totalButtonCount = _padButtons.length + 2;
+              final rowCount = (totalButtonCount / effectiveColumnCount).ceil();
+
+              return Column(
+                children: List.generate(rowCount, (rowIndex) {
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: rowIndex < rowCount - 1 ? buttonSpacing : 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: _buildRowButtons(rowIndex, effectiveColumnCount),
                     ),
-                  ),
-                )
-              : ReorderableWrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _padButtons.asMap().entries.map((entry) {
-                    return _buildPadButton(entry.key, entry.value);
-                  }).toList(),
-                  onReorder: _onReorder,
-                ),
+                  );
+                }),
+              );
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildPadButton(int index, CustomButton button) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          key: ValueKey(button.id),
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: button.color,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                button.abbreviation,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: _getContrastColor(button.color),
+  List<Widget> _buildRowButtons(int rowIndex, int columnCount) {
+    final List<Widget> rowWidgets = [];
+    final startIndex = rowIndex * columnCount;
+    final totalButtonCount = _padButtons.length + 2;
+
+    for (int i = 0; i < columnCount; i++) {
+      final globalIndex = startIndex + i;
+      if (globalIndex >= totalButtonCount) break;
+
+      if (i > 0) {
+        rowWidgets.add(const SizedBox(width: buttonSpacing));
+      }
+
+      // 마지막 두 개는 삭제와 세팅 버튼 (고정)
+      if (globalIndex == totalButtonCount - 2) {
+        rowWidgets.add(_buildFixedDeleteButton());
+      } else if (globalIndex == totalButtonCount - 1) {
+        rowWidgets.add(_buildFixedSettingsButton());
+      } else {
+        rowWidgets.add(_buildDraggablePadButton(globalIndex, _padButtons[globalIndex]));
+      }
+    }
+
+    return rowWidgets;
+  }
+
+  Widget _buildDraggablePadButton(int index, CustomButton button) {
+    return LongPressDraggable<int>(
+      data: index,
+      feedback: Material(
+        color: Colors.transparent,
+        elevation: 4,
+        child: _buildPadButtonContent(button, showDelete: false, scale: 1.1),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _buildPadButtonContent(button, showDelete: false),
+      ),
+      onDragStarted: () {
+        HapticFeedback.mediumImpact();
+      },
+      child: DragTarget<int>(
+        onWillAcceptWithDetails: (details) => details.data != index,
+        onAcceptWithDetails: (details) {
+          _onReorder(details.data, index);
+        },
+        builder: (context, candidateData, rejectedData) {
+          final isTarget = candidateData.isNotEmpty;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: isTarget
+                  ? Border.all(color: const Color(0xFFFFB6C1), width: 2)
+                  : null,
+            ),
+            child: _buildPadButtonContent(button, showDelete: true, onDelete: () => _removeButtonFromPad(index)),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPadButtonContent(CustomButton button, {bool showDelete = true, VoidCallback? onDelete, double scale = 1.0}) {
+    return Transform.scale(
+      scale: scale,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: buttonSize,
+            height: buttonSize,
+            decoration: BoxDecoration(
+              color: button.color,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      button.abbreviation,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _getContrastColor(button.color),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              Text(
-                button.koreanName,
-                style: TextStyle(
-                  fontSize: 9,
-                  color: _getContrastColor(button.color).withOpacity(0.7),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      button.koreanName,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: _getContrastColor(button.color).withOpacity(0.7),
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        Positioned(
-          top: -6,
-          right: -6,
-          child: GestureDetector(
-            onTap: () => _removeButtonFromPad(index),
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF6B6B),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Icon(
-                Icons.close,
-                size: 12,
-                color: Colors.white,
-              ),
+              ],
             ),
           ),
+          if (showDelete && onDelete != null)
+            Positioned(
+              top: -6,
+              right: -6,
+              child: GestureDetector(
+                onTap: onDelete,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF6B6B),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFixedDeleteButton() {
+    return Container(
+      width: buttonSize,
+      height: buttonSize,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.backspace_outlined,
+            size: 20,
+            color: Color(0xFFFF6B6B),
+          ),
+          SizedBox(height: 2),
+          Text(
+            '삭제',
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFixedSettingsButton() {
+    return Container(
+      width: buttonSize,
+      height: buttonSize,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
+      ),
+      child: ShaderMask(
+        shaderCallback: (bounds) => const LinearGradient(
+          colors: [
+            Color(0xFFFF6B6B),
+            Color(0xFFFFE66D),
+            Color(0xFF4ECDC4),
+            Color(0xFF95E1D3),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(bounds),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.palette,
+              size: 24,
+              color: Colors.white,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -300,8 +446,10 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
             Expanded(
               child: TextField(
                 controller: _abbreviationController,
+                maxLength: 5,
+                buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
                 decoration: InputDecoration(
-                  hintText: '약자 (예: K)',
+                  hintText: '약자 (최대 5자)',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -321,8 +469,10 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
             Expanded(
               child: TextField(
                 controller: _koreanNameController,
+                maxLength: 8,
+                buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
                 decoration: InputDecoration(
-                  hintText: '한글명 (예: 겉뜨기)',
+                  hintText: '한글명 (최대 8자)',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -341,11 +491,9 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
           ],
         ),
         const SizedBox(height: 12),
-        // 버튼 미리보기 + 색상 선택 버튼
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 버튼 미리보기
             Container(
               width: 80,
               height: 80,
@@ -367,29 +515,41 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    _abbreviationController.text.isEmpty
-                        ? '?'
-                        : _abbreviationController.text,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: _getContrastColor(_selectedColor),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        _abbreviationController.text.isEmpty
+                            ? '?'
+                            : _abbreviationController.text,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: _getContrastColor(_selectedColor),
+                        ),
+                      ),
                     ),
                   ),
                   if (_koreanNameController.text.isNotEmpty)
-                    Text(
-                      _koreanNameController.text,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: _getContrastColor(_selectedColor).withOpacity(0.7),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _koreanNameController.text,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _getContrastColor(_selectedColor).withOpacity(0.7),
+                          ),
+                          maxLines: 1,
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
             const SizedBox(width: 16),
-            // 색상 선택 버튼
             GestureDetector(
               onTap: _showColorPickerDialog,
               child: Container(
@@ -437,7 +597,6 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
       context: context,
       builder: (context) => _ColorPickerPopup(
         initialColor: _selectedColor,
-        hexController: _hexController,
         onColorSelected: (color) {
           setState(() {
             _selectedColor = color;
@@ -557,98 +716,13 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   }
 }
 
-/// 드래그 앤 드롭 가능한 Wrap 위젯
-class ReorderableWrap extends StatefulWidget {
-  final List<Widget> children;
-  final double spacing;
-  final double runSpacing;
-  final Function(int, int) onReorder;
-
-  const ReorderableWrap({
-    super.key,
-    required this.children,
-    required this.onReorder,
-    this.spacing = 0,
-    this.runSpacing = 0,
-  });
-
-  @override
-  State<ReorderableWrap> createState() => _ReorderableWrapState();
-}
-
-class _ReorderableWrapState extends State<ReorderableWrap> {
-  int? _targetIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: widget.spacing,
-      runSpacing: widget.runSpacing,
-      children: widget.children.asMap().entries.map((entry) {
-        final index = entry.key;
-        final child = entry.value;
-
-        return LongPressDraggable<int>(
-          data: index,
-          feedback: Material(
-            color: Colors.transparent,
-            child: Opacity(
-              opacity: 0.8,
-              child: Transform.scale(
-                scale: 1.1,
-                child: child,
-              ),
-            ),
-          ),
-          childWhenDragging: Opacity(
-            opacity: 0.3,
-            child: child,
-          ),
-          child: DragTarget<int>(
-            onWillAcceptWithDetails: (details) {
-              setState(() {
-                _targetIndex = index;
-              });
-              return details.data != index;
-            },
-            onLeave: (_) {
-              setState(() {
-                _targetIndex = null;
-              });
-            },
-            onAcceptWithDetails: (details) {
-              widget.onReorder(details.data, index);
-              setState(() {
-                _targetIndex = null;
-              });
-            },
-            builder: (context, candidateData, rejectedData) {
-              return Container(
-                decoration: BoxDecoration(
-                  border: _targetIndex == index
-                      ? Border.all(color: const Color(0xFFFFB6C1), width: 2)
-                      : null,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: child,
-              );
-            },
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-/// 색상 선택 팝업 (hex 입력 + 컬러 팔레트 + HSV 슬라이더)
+/// 색상 선택 팝업
 class _ColorPickerPopup extends StatefulWidget {
   final Color initialColor;
-  final TextEditingController hexController;
   final Function(Color) onColorSelected;
 
   const _ColorPickerPopup({
     required this.initialColor,
-    required this.hexController,
     required this.onColorSelected,
   });
 
@@ -665,25 +739,25 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
 
   static const List<Color> _paletteColors = [
     Colors.white,
-    Color(0xFFFFF5E6), // cream
-    Color(0xFFFFE4E1), // misty rose
-    Color(0xFFE6E6FA), // lavender
-    Color(0xFFE0FFFF), // light cyan
-    Color(0xFFE8F5E9), // light green
-    Color(0xFFFFF8DC), // cornsilk
-    Color(0xFFFFC0CB), // pink
-    Color(0xFFFFB6C1), // light pink
-    Color(0xFFDDA0DD), // plum
-    Color(0xFFADD8E6), // light blue
-    Color(0xFF98FB98), // pale green
-    Color(0xFFFFDAB9), // peach puff
-    Color(0xFFF0E68C), // khaki
-    Color(0xFFD3D3D3), // light gray
-    Color(0xFFFF6B6B), // coral red
-    Color(0xFF4ECDC4), // teal
-    Color(0xFFFFE66D), // yellow
-    Color(0xFF95E1D3), // mint
-    Color(0xFFF38181), // salmon
+    Color(0xFFFFF5E6),
+    Color(0xFFFFE4E1),
+    Color(0xFFE6E6FA),
+    Color(0xFFE0FFFF),
+    Color(0xFFE8F5E9),
+    Color(0xFFFFF8DC),
+    Color(0xFFFFC0CB),
+    Color(0xFFFFB6C1),
+    Color(0xFFDDA0DD),
+    Color(0xFFADD8E6),
+    Color(0xFF98FB98),
+    Color(0xFFFFDAB9),
+    Color(0xFFF0E68C),
+    Color(0xFFD3D3D3),
+    Color(0xFFFF6B6B),
+    Color(0xFF4ECDC4),
+    Color(0xFFFFE66D),
+    Color(0xFF95E1D3),
+    Color(0xFFF38181),
   ];
 
   @override
@@ -757,7 +831,6 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 헤더
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -776,8 +849,6 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
               ],
             ),
             const SizedBox(height: 16),
-
-            // 색상 미리보기 + Hex 입력
             Row(
               children: [
                 Container(
@@ -823,8 +894,6 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
               ],
             ),
             const SizedBox(height: 16),
-
-            // 컬러 팔레트
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -858,8 +927,6 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // HSV 슬라이더
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -868,7 +935,6 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
               ),
               child: Column(
                 children: [
-                  // 색상 (Hue)
                   Row(
                     children: [
                       const SizedBox(width: 40, child: Text('색상', style: TextStyle(fontSize: 12))),
@@ -893,7 +959,6 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
                       ),
                     ],
                   ),
-                  // 채도
                   Row(
                     children: [
                       const SizedBox(width: 40, child: Text('채도', style: TextStyle(fontSize: 12))),
@@ -911,7 +976,6 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
                       ),
                     ],
                   ),
-                  // 명도
                   Row(
                     children: [
                       const SizedBox(width: 40, child: Text('명도', style: TextStyle(fontSize: 12))),
@@ -933,8 +997,6 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
               ),
             ),
             const SizedBox(height: 20),
-
-            // 버튼
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

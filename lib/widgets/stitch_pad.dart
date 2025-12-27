@@ -8,6 +8,9 @@ class StitchPad extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onSettingsTap;
 
+  static const double buttonSize = 70.0;
+  static const double buttonSpacing = 8.0;
+
   const StitchPad({
     super.key,
     required this.buttons,
@@ -28,7 +31,7 @@ class StitchPad extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildButtonsRow(),
+          _buildButtonsGrid(),
           const SizedBox(height: 12),
           _buildAddRowButton(),
         ],
@@ -36,21 +39,47 @@ class StitchPad extends StatelessWidget {
     );
   }
 
-  Widget _buildButtonsRow() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          ...buttons.map((button) => Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _buildStitchButton(button),
-          )),
+  Widget _buildButtonsGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 사용 가능한 너비에서 최대 열 수 계산
+        final availableWidth = constraints.maxWidth;
+        final columnCount = ((availableWidth + buttonSpacing) / (buttonSize + buttonSpacing)).floor();
+        final effectiveColumnCount = columnCount > 0 ? columnCount : 1;
+
+        // 모든 버튼 목록 (사용자 버튼 + 삭제 + 세팅)
+        final allButtons = <Widget>[
+          ...buttons.map((button) => _buildStitchButton(button)),
           _buildDeleteButton(),
-          const SizedBox(width: 12),
           _buildSettingsButton(),
-        ],
-      ),
+        ];
+
+        // 행 수 계산
+        final rowCount = (allButtons.length / effectiveColumnCount).ceil();
+
+        return Column(
+          children: List.generate(rowCount, (rowIndex) {
+            final startIndex = rowIndex * effectiveColumnCount;
+            final endIndex = (startIndex + effectiveColumnCount).clamp(0, allButtons.length);
+            final rowButtons = allButtons.sublist(startIndex, endIndex);
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: rowIndex < rowCount - 1 ? buttonSpacing : 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: rowButtons.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final button = entry.value;
+                  return Padding(
+                    padding: EdgeInsets.only(right: index < rowButtons.length - 1 ? buttonSpacing : 0),
+                    child: button,
+                  );
+                }).toList(),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 
@@ -58,8 +87,8 @@ class StitchPad extends StatelessWidget {
     return GestureDetector(
       onTap: () => onButtonTap(button),
       child: Container(
-        width: 70,
-        height: 70,
+        width: buttonSize,
+        height: buttonSize,
         decoration: BoxDecoration(
           color: button.color,
           borderRadius: BorderRadius.circular(12),
@@ -71,22 +100,31 @@ class StitchPad extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              button.abbreviation,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: _getContrastColor(button.color),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                button.abbreviation,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: _getContrastColor(button.color),
+                ),
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              button.koreanName,
-              style: TextStyle(
-                fontSize: 11,
-                color: _getContrastColor(button.color).withOpacity(0.7),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  button.koreanName,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: _getContrastColor(button.color).withOpacity(0.7),
+                  ),
+                  maxLines: 1,
+                ),
               ),
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -103,8 +141,8 @@ class StitchPad extends StatelessWidget {
     return GestureDetector(
       onTap: onDelete,
       child: Container(
-        width: 70,
-        height: 70,
+        width: buttonSize,
+        height: buttonSize,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -139,8 +177,8 @@ class StitchPad extends StatelessWidget {
     return GestureDetector(
       onTap: onSettingsTap,
       child: Container(
-        width: 70,
-        height: 70,
+        width: buttonSize,
+        height: buttonSize,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
