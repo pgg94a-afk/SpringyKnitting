@@ -12,7 +12,7 @@ class StitchPad extends StatefulWidget {
   final Function(int) onButtonDeleted;
   final VoidCallback? onCollapse;
 
-  static const int gridRows = 3;
+  static const int gridRows = 2;
   static const int gridColumns = 3;
   static const double buttonSpacing = 8.0;
   static const double minButtonSize = 55.0;
@@ -233,7 +233,7 @@ class _StitchPadState extends State<StitchPad> {
             Expanded(
               child: SizedBox(
                 height: totalHeight,
-                child: _buildSideButtons(),
+                child: _buildSideButtons(buttonSize),
               ),
             ),
           ],
@@ -456,14 +456,16 @@ class _StitchPadState extends State<StitchPad> {
     return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
-  Widget _buildSideButtons() {
+  Widget _buildSideButtons(double buttonSize) {
     return Column(
       children: [
-        Expanded(
+        SizedBox(
+          height: buttonSize,
           child: _buildDeleteButton(),
         ),
         const SizedBox(height: StitchPad.buttonSpacing),
-        Expanded(
+        SizedBox(
+          height: buttonSize,
           child: _buildAddRowButton(),
         ),
       ],
