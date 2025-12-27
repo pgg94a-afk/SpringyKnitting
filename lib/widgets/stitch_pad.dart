@@ -113,13 +113,10 @@ class _StitchPadState extends State<StitchPad> {
   Widget _buildEditButton() {
     return GestureDetector(
       onTap: _toggleEditMode,
-      child: Text(
-        _isEditMode ? '완료' : '편집',
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.black54,
-        ),
+      child: Icon(
+        _isEditMode ? Icons.check : Icons.edit,
+        size: 20,
+        color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.black54,
       ),
     );
   }
@@ -141,10 +138,13 @@ class _StitchPadState extends State<StitchPad> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 편집 버튼 - 패드 우측 상단에 위치
-            Align(
-              alignment: Alignment.centerRight,
-              child: _buildEditButton(),
+            // 편집 버튼 - 키패드 3x3 영역 우측 상단에 위치
+            SizedBox(
+              width: actualGridWidth,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _buildEditButton(),
+              ),
             ),
             const SizedBox(height: 8),
             // 메인 영역 - 키패드와 사이드 버튼이 붙어있게
