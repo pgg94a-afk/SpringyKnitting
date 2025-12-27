@@ -113,7 +113,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
             constraints: BoxConstraints(
@@ -121,10 +121,10 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
             ),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.35),
+              color: Colors.white.withOpacity(0.25),
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withOpacity(0.4),
                 width: 1.5,
               ),
               boxShadow: [
@@ -560,11 +560,11 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.35),
+              color: Colors.white.withOpacity(0.25),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: Colors.white.withOpacity(0.5),
