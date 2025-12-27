@@ -137,6 +137,7 @@ class _StitchPadState extends State<StitchPad> {
 
         return Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 편집 버튼 - 키패드 3x3 영역 우측 상단에 위치
             SizedBox(
