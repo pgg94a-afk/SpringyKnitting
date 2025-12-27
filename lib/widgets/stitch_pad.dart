@@ -12,10 +12,11 @@ class StitchPad extends StatefulWidget {
   final Function(int) onButtonDeleted;
 
   static const int gridRows = 3;
+  static const int gridColumns = 3;
   static const double buttonSpacing = 8.0;
   static const double minButtonSize = 55.0;
-  static const double maxButtonSize = 70.0;
-  static const double rightSectionWidth = 55.0;
+  static const double maxButtonSize = 80.0;
+  static const double rightSectionWidth = 70.0;
 
   const StitchPad({
     super.key,
@@ -103,8 +104,6 @@ class _StitchPadState extends State<StitchPad> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildEditButton(),
-          const SizedBox(height: 8),
           _buildMainSection(),
         ],
       ),
@@ -112,43 +111,40 @@ class _StitchPadState extends State<StitchPad> {
   }
 
   Widget _buildEditButton() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        GestureDetector(
-          onTap: _toggleEditMode,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFFFFD1DC),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _isEditMode ? Icons.check : Icons.edit,
-                  size: 14,
-                  color: _isEditMode ? Colors.white : Colors.black54,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _isEditMode ? '완료' : '편집',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: _isEditMode ? Colors.white : Colors.black54,
-                  ),
-                ),
-              ],
+    return Center(
+      child: GestureDetector(
+        onTap: _toggleEditMode,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFFFD1DC),
+              width: 1,
             ),
           ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isEditMode ? Icons.check : Icons.edit,
+                size: 14,
+                color: _isEditMode ? Colors.white : Colors.black54,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _isEditMode ? '완료' : '편집',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: _isEditMode ? Colors.white : Colors.black54,
+                ),
+              ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 
@@ -158,34 +154,47 @@ class _StitchPadState extends State<StitchPad> {
         final availableWidth = constraints.maxWidth;
         final leftSectionWidth = availableWidth - StitchPad.rightSectionWidth - StitchPad.buttonSpacing;
 
-        // 동적으로 열 수 계산 (3열 또는 4열)
-        int gridColumns = 3;
-        double buttonSize = ((leftSectionWidth - (StitchPad.buttonSpacing * (gridColumns - 1))) / gridColumns);
-
-        // 버튼이 maxButtonSize보다 크면 4열로 시도
-        if (buttonSize > StitchPad.maxButtonSize) {
-          gridColumns = 4;
-          buttonSize = ((leftSectionWidth - (StitchPad.buttonSpacing * (gridColumns - 1))) / gridColumns);
-        }
-
+        // 3x3 고정 레이아웃
+        double buttonSize = ((leftSectionWidth - (StitchPad.buttonSpacing * (StitchPad.gridColumns - 1))) / StitchPad.gridColumns);
         buttonSize = buttonSize.clamp(StitchPad.minButtonSize, StitchPad.maxButtonSize);
 
         final totalHeight = (buttonSize * StitchPad.gridRows) + (StitchPad.buttonSpacing * (StitchPad.gridRows - 1));
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: SizedBox(
-                height: totalHeight,
-                child: _buildButtonGrid(buttonSize, gridColumns),
-              ),
+            // 편집 버튼 - 키패드 마지막 열 위에 위치
+            Row(
+              children: [
+                // 처음 2열 만큼 빈 공간
+                SizedBox(width: (buttonSize * 2) + (StitchPad.buttonSpacing * 2)),
+                // 마지막 열 위에 편집 버튼
+                SizedBox(
+                  width: buttonSize,
+                  child: _buildEditButton(),
+                ),
+                // 사이드 섹션 너비만큼 빈 공간
+                const SizedBox(width: StitchPad.buttonSpacing),
+                const SizedBox(width: StitchPad.rightSectionWidth),
+              ],
             ),
-            const SizedBox(width: StitchPad.buttonSpacing),
-            SizedBox(
-              width: StitchPad.rightSectionWidth,
-              height: totalHeight,
-              child: _buildSideButtons(),
+            const SizedBox(height: 8),
+            // 메인 영역
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: leftSectionWidth,
+                  height: totalHeight,
+                  child: _buildButtonGrid(buttonSize, StitchPad.gridColumns),
+                ),
+                const SizedBox(width: StitchPad.buttonSpacing),
+                SizedBox(
+                  width: StitchPad.rightSectionWidth,
+                  height: totalHeight,
+                  child: _buildSideButtons(),
+                ),
+              ],
             ),
           ],
         );
