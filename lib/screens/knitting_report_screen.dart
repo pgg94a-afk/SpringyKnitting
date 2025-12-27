@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
 import '../widgets/stitch_pad.dart';
-import '../widgets/button_settings_dialog.dart';
 import '../widgets/add_button_dialog.dart';
 import 'youtube_list_screen.dart';
 
@@ -16,6 +15,7 @@ class KnittingReportScreen extends StatefulWidget {
 class _KnittingReportScreenState extends State<KnittingReportScreen> {
   final List<List<Stitch>> _rows = [[]];
   int _currentRowIndex = 0;
+  int _currentNavIndex = 0;
   final Map<int, ScrollController> _scrollControllers = {};
 
   // 기본 버튼 목록 (K, P)
@@ -103,20 +103,6 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     });
   }
 
-  void _showButtonSettings() {
-    showDialog(
-      context: context,
-      builder: (context) => ButtonSettingsDialog(
-        currentButtons: _padButtons,
-        onButtonsChanged: (buttons) {
-          setState(() {
-            _padButtons = buttons;
-          });
-        },
-      ),
-    );
-  }
-
   void _showAddButton() {
     showDialog(
       context: context,
@@ -130,6 +116,18 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     );
   }
 
+  void _onButtonsReordered(List<CustomButton> newButtons) {
+    setState(() {
+      _padButtons = newButtons;
+    });
+  }
+
+  void _onButtonDeleted(int index) {
+    setState(() {
+      _padButtons.removeAt(index);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -140,27 +138,148 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
           children: [
             _buildHeader(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ..._rows.asMap().entries.toList().reversed.map((entry) {
-                      final index = entry.key;
-                      final row = entry.value;
-                      return _buildRow(index, row);
-                    }),
-                  ],
-                ),
-              ),
+              child: _buildCurrentTab(),
             ),
-            StitchPad(
-              buttons: _padButtons,
-              onButtonTap: _addStitch,
-              onAddRow: _addRow,
-              onDelete: _removeLastStitch,
-              onLayoutTap: _showButtonSettings,
-              onEmptySlotTap: _showAddButton,
+            if (_currentNavIndex == 0)
+              StitchPad(
+                buttons: _padButtons,
+                onButtonTap: _addStitch,
+                onAddRow: _addRow,
+                onDelete: _removeLastStitch,
+                onEmptySlotTap: _showAddButton,
+                onButtonsReordered: _onButtonsReordered,
+                onButtonDeleted: _onButtonDeleted,
+              ),
+            _buildBottomNavigationBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentTab() {
+    switch (_currentNavIndex) {
+      case 0:
+        return _buildRecordTab();
+      case 1:
+        return _buildVideoTab();
+      case 2:
+        return _buildPatternTab();
+      default:
+        return _buildRecordTab();
+    }
+  }
+
+  Widget _buildRecordTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ..._rows.asMap().entries.toList().reversed.map((entry) {
+            final index = entry.key;
+            final row = entry.value;
+            return _buildRow(index, row);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoTab() {
+    return const YoutubeListScreen(embedded: true);
+  }
+
+  Widget _buildPatternTab() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.grid_on,
+            size: 64,
+            color: const Color(0xFFFFB6C1).withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '도안 기능 준비 중',
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '곧 만나요!',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.black38,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(0, Icons.edit_note, '기록'),
+              _buildNavItem(1, Icons.play_circle_outline, '영상'),
+              _buildNavItem(2, Icons.grid_on, '도안'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = _currentNavIndex == index;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentNavIndex = index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFFFB6C1).withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: isSelected ? const Color(0xFFFFB6C1) : Colors.black38,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? const Color(0xFFFFB6C1) : Colors.black38,
+              ),
             ),
           ],
         ),
@@ -189,34 +308,6 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
           const Spacer(),
           GestureDetector(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const YoutubeListScreen(),
-                ),
-              );
-            },
-            child: Column(
-              children: [
-                Image.asset(
-                  'assets/icons/ic_yt.png',
-                  width: 36,
-                  height: 36,
-                ),
-                Text(
-                  "Youtube",
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            )
-          ),
-          const SizedBox(width: 16),
-          GestureDetector(
-            onTap: () {
               // TODO: PDF 기능 연결
             },
             child: Column(
@@ -228,16 +319,16 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                   height: 24,
                 ),
                 const SizedBox(height: 6),
-                Text(
+                const Text(
                   "PDF",
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                 ),
               ],
-            )
+            ),
           ),
         ],
       ),

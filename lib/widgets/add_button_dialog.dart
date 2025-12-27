@@ -15,15 +15,18 @@ class AddButtonDialog extends StatefulWidget {
 
 class _AddButtonDialogState extends State<AddButtonDialog> {
   CustomButton? _selectedPreset;
-  Color _selectedColor = Colors.white;
+  Color _selectedColor = const Color(0xFFFFE4E1);
   final TextEditingController _hexController = TextEditingController();
   final TextEditingController _abbreviationController = TextEditingController();
   final TextEditingController _koreanNameController = TextEditingController();
 
+  final FocusNode _abbreviationFocus = FocusNode();
+  final FocusNode _koreanNameFocus = FocusNode();
+
   @override
   void initState() {
     super.initState();
-    _hexController.text = 'FFFFFF';
+    _hexController.text = 'FFE4E1';
   }
 
   @override
@@ -31,6 +34,8 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
     _hexController.dispose();
     _abbreviationController.dispose();
     _koreanNameController.dispose();
+    _abbreviationFocus.dispose();
+    _koreanNameFocus.dispose();
     super.dispose();
   }
 
@@ -95,21 +100,21 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
         ),
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildHeader(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Flexible(
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildButtonPreview(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     _buildPresetSelector(),
                   ],
                 ),
@@ -144,164 +149,143 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
   }
 
   Widget _buildButtonPreview() {
-    return Column(
+    final contrastColor = _getContrastColor(_selectedColor);
+
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '버튼 미리보기',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+        // 큰 미리보기 버튼 (인풋 내장)
+        Expanded(
+          child: Container(
+            height: 140,
+            decoration: BoxDecoration(
+              color: _selectedColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFFFFD1DC),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // 약자 입력
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TextField(
+                    controller: _abbreviationController,
+                    focusNode: _abbreviationFocus,
+                    maxLength: 5,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: contrastColor,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '약자',
+                      hintStyle: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: contrastColor.withOpacity(0.3),
+                      ),
+                      border: InputBorder.none,
+                      counterText: '',
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // 한글명 입력
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TextField(
+                    controller: _koreanNameController,
+                    focusNode: _koreanNameFocus,
+                    maxLength: 8,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: contrastColor.withOpacity(0.7),
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '한글명',
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: contrastColor.withOpacity(0.3),
+                      ),
+                      border: InputBorder.none,
+                      counterText: '',
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _abbreviationController,
-                maxLength: 5,
-                buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
-                decoration: InputDecoration(
-                  hintText: '약자 (최대 5자)',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _koreanNameController,
-                maxLength: 8,
-                buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
-                decoration: InputDecoration(
-                  hintText: '한글명 (최대 8자)',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFD1DC)),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: _selectedColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFFFD1DC),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
+        const SizedBox(width: 12),
+        // 색상 선택 버튼
+        GestureDetector(
+          onTap: _showColorPickerDialog,
+          child: Container(
+            width: 60,
+            height: 140,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFFF6B6B),
+                  Color(0xFFFFE66D),
+                  Color(0xFF4ECDC4),
+                  Color(0xFF95E1D3),
                 ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        _abbreviationController.text.isEmpty
-                            ? '?'
-                            : _abbreviationController.text,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: _getContrastColor(_selectedColor),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_koreanNameController.text.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          _koreanNameController.text,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: _getContrastColor(_selectedColor).withOpacity(0.7),
-                          ),
-                          maxLines: 1,
-                        ),
-                      ),
-                    ),
-                ],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFFFFD1DC),
+                width: 2,
               ),
-            ),
-            const SizedBox(width: 16),
-            GestureDetector(
-              onTap: _showColorPickerDialog,
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFFF6B6B),
-                      Color(0xFFFFE66D),
-                      Color(0xFF4ECDC4),
-                      Color(0xFF95E1D3),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFFFD1DC),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-                child: const Icon(
+              ],
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
                   Icons.palette,
-                  size: 28,
+                  size: 32,
                   color: Colors.white,
                 ),
-              ),
+                SizedBox(height: 4),
+                Text(
+                  '색상',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ],
     );
@@ -312,7 +296,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '버튼 선택',
+          '프리셋',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,

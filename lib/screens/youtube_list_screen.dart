@@ -3,7 +3,9 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../models/youtube_video.dart';
 
 class YoutubeListScreen extends StatefulWidget {
-  const YoutubeListScreen({super.key});
+  final bool embedded;
+
+  const YoutubeListScreen({super.key, this.embedded = false});
 
   @override
   State<YoutubeListScreen> createState() => _YoutubeListScreenState();
@@ -173,6 +175,10 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return _buildEmbeddedContent();
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -194,6 +200,39 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
         backgroundColor: const Color(0xFFFFB6C1),
         child: const Icon(Icons.add, color: Colors.white),
       ),
+    );
+  }
+
+  Widget _buildEmbeddedContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_currentVideo != null) _buildPlayer(),
+        Expanded(
+          child: _videos.isEmpty
+              ? _buildEmptyState()
+              : _buildVideoList(),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _showAddVideoDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('영상 추가'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFB6C1),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
