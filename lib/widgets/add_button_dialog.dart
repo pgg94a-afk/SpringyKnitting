@@ -315,7 +315,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
-                const svHeight = 94.0;
+                const svHeight = 110.0;
                 return Column(
                   children: [
                     // Saturation-Value 그리드
@@ -384,7 +384,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     // Hue 바 (가로)
                     GestureDetector(
                       onPanDown: (details) {
@@ -394,7 +394,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                         _updateHue(details.localPosition.dx, width);
                       },
                       child: Container(
-                        height: 24,
+                        height: 16,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           gradient: const LinearGradient(
@@ -433,7 +433,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     // HEX 입력
                     Row(
                       children: [
