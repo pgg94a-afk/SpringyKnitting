@@ -1156,22 +1156,18 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
                     Expanded(
                       child: GestureDetector(
                         onPanDown: (details) {
-                          final box = context.findRenderObject() as RenderBox;
-                          final localPosition = box.globalToLocal(details.globalPosition);
                           _updateFromPosition(
-                            localPosition.dx,
-                            localPosition.dy - 160,
-                            box.size.width - 50,
+                            details.localPosition.dx,
+                            details.localPosition.dy,
+                            MediaQuery.of(context).size.width - 100,
                             250,
                           );
                         },
                         onPanUpdate: (details) {
-                          final box = context.findRenderObject() as RenderBox;
-                          final localPosition = box.globalToLocal(details.globalPosition);
                           _updateFromPosition(
-                            localPosition.dx,
-                            localPosition.dy - 160,
-                            box.size.width - 50,
+                            details.localPosition.dx,
+                            details.localPosition.dy,
+                            MediaQuery.of(context).size.width - 100,
                             250,
                           );
                         },
@@ -1228,14 +1224,10 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
                     // Hue 바
                     GestureDetector(
                       onPanDown: (details) {
-                        final box = context.findRenderObject() as RenderBox;
-                        final localPosition = box.globalToLocal(details.globalPosition);
-                        _updateHue(localPosition.dy - 160, 250);
+                        _updateHue(details.localPosition.dy, 250);
                       },
                       onPanUpdate: (details) {
-                        final box = context.findRenderObject() as RenderBox;
-                        final localPosition = box.globalToLocal(details.globalPosition);
-                        _updateHue(localPosition.dy - 160, 250);
+                        _updateHue(details.localPosition.dy, 250);
                       },
                       child: Container(
                         width: 30,
