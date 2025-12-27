@@ -212,66 +212,65 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                   ),
                 ],
               ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 약자 입력
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: TextField(
-                        controller: _abbreviationController,
-                        focusNode: _abbreviationFocus,
-                        maxLength: 5,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 약자 입력
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextField(
+                      controller: _abbreviationController,
+                      focusNode: _abbreviationFocus,
+                      maxLength: 5,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: contrastColor,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '약자',
+                        hintStyle: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          color: contrastColor,
+                          color: contrastColor.withOpacity(0.3),
                         ),
-                        decoration: InputDecoration(
-                          hintText: '약자',
-                          hintStyle: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: contrastColor.withOpacity(0.3),
-                          ),
-                          border: InputBorder.none,
-                          counterText: '',
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: (_) => setState(() {}),
+                        border: InputBorder.none,
+                        counterText: '',
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
                       ),
+                      onChanged: (_) => setState(() {}),
                     ),
-                    const SizedBox(height: 4),
-                    // 한글명 입력
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: TextField(
-                        controller: _koreanNameController,
-                        focusNode: _koreanNameFocus,
-                        maxLength: 8,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
+                  ),
+                  const SizedBox(height: 4),
+                  // 한글명 입력
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TextField(
+                      controller: _koreanNameController,
+                      focusNode: _koreanNameFocus,
+                      maxLength: 8,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: contrastColor.withOpacity(0.7),
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '한글명',
+                        hintStyle: TextStyle(
                           fontSize: 14,
-                          color: contrastColor.withOpacity(0.7),
+                          color: contrastColor.withOpacity(0.3),
                         ),
-                        decoration: InputDecoration(
-                          hintText: '한글명',
-                          hintStyle: TextStyle(
-                            fontSize: 14,
-                            color: contrastColor.withOpacity(0.3),
-                          ),
-                          border: InputBorder.none,
-                          counterText: '',
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: (_) => setState(() {}),
+                        border: InputBorder.none,
+                        counterText: '',
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
                       ),
+                      onChanged: (_) => setState(() {}),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
