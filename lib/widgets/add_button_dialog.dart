@@ -189,29 +189,29 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 큰 미리보기 버튼 (인풋 내장)
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                height: 140,
-                decoration: BoxDecoration(
-                  color: _selectedColor.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.6),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+        // 큰 미리보기 버튼 (인풋 내장) - 정사각형
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                color: _selectedColor.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.6),
+                  width: 2,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -358,16 +358,17 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
             return GestureDetector(
               onTap: () => _selectPreset(preset),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    width: 70,
+                    height: 70,
                     decoration: BoxDecoration(
                       color: isSelected
                           ? _selectedAccent.withOpacity(0.9)
                           : Colors.white.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isSelected
                             ? _selectedAccent.withOpacity(0.3)
@@ -376,20 +377,35 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                       ),
                     ),
                     child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          preset.abbreviation,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white : Colors.black87,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              preset.abbreviation,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? Colors.white : Colors.black87,
+                              ),
+                            ),
                           ),
                         ),
-                        Text(
-                          preset.koreanName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isSelected ? Colors.white70 : Colors.black54,
+                        const SizedBox(height: 2),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              preset.koreanName,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isSelected ? Colors.white70 : Colors.black54,
+                              ),
+                              maxLines: 1,
+                            ),
                           ),
                         ),
                       ],

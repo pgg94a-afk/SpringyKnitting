@@ -877,16 +877,17 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
             return GestureDetector(
               onTap: () => _selectPreset(preset),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    width: 70,
+                    height: 70,
                     decoration: BoxDecoration(
                       color: isSelected
                           ? _selectedAccent.withOpacity(0.9)
                           : Colors.white.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isSelected
                             ? _selectedAccent.withOpacity(0.3)
@@ -895,20 +896,35 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                       ),
                     ),
                     child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          preset.abbreviation,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white : Colors.black87,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              preset.abbreviation,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? Colors.white : Colors.black87,
+                              ),
+                            ),
                           ),
                         ),
-                        Text(
-                          preset.koreanName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isSelected ? Colors.white70 : Colors.black54,
+                        const SizedBox(height: 2),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              preset.koreanName,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isSelected ? Colors.white70 : Colors.black54,
+                              ),
+                              maxLines: 1,
+                            ),
                           ),
                         ),
                       ],

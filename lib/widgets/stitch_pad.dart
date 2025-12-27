@@ -115,38 +115,70 @@ class _StitchPadState extends State<StitchPad> {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, _isCollapsed ? 8 : 16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.7),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(
-              top: BorderSide(
-                color: Colors.white.withOpacity(0.9),
-                width: 1.5,
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        if (details.delta.dy < -5) {
+          // 위로 스와이프 - 펼치기
+          if (_isCollapsed) {
+            setState(() {
+              _isCollapsed = false;
+            });
+          }
+        } else if (details.delta.dy > 5) {
+          // 아래로 스와이프 - 접기
+          if (!_isCollapsed) {
+            setState(() {
+              _isCollapsed = true;
+              _isEditMode = false;
+            });
+          }
+        }
+      },
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, _isCollapsed ? 12 : 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.7),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withOpacity(0.9),
+                  width: 1.5,
+                ),
               ),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 20,
-                offset: const Offset(0, -4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeaderButtons(),
-              if (!_isCollapsed) ...[
-                const SizedBox(height: 8),
-                _buildKeypadSection(),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, -4),
+                ),
               ],
-            ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 핸들러 바
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildHeaderButtons(),
+                if (!_isCollapsed) ...[
+                  const SizedBox(height: 8),
+                  _buildKeypadSection(),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -200,47 +232,6 @@ class _StitchPadState extends State<StitchPad> {
               ),
             ),
           ),
-        if (!_isCollapsed) const SizedBox(width: 8),
-        // 접기/펼치기 버튼
-        GestureDetector(
-          onTap: _toggleCollapse,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.8),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _isCollapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                      size: 16,
-                      color: Colors.black54,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _isCollapsed ? '펼치기' : '접기',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }

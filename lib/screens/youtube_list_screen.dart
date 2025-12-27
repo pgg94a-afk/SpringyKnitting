@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../models/youtube_video.dart';
@@ -15,6 +16,9 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
   final List<YoutubeVideo> _videos = [];
   YoutubeVideo? _currentVideo;
   YoutubePlayerController? _playerController;
+
+  // 색상 정의
+  static const Color _accentColor = Color(0xFF6B7280);
 
   @override
   void dispose() {
@@ -109,7 +113,7 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFB6C1),
+                    backgroundColor: _accentColor,
                     foregroundColor: Colors.white,
                   ),
                   child: const Text('추가'),
@@ -195,10 +199,17 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddVideoDialog,
-        backgroundColor: const Color(0xFFFFB6C1),
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: FloatingActionButton(
+            onPressed: _showAddVideoDialog,
+            backgroundColor: _accentColor.withOpacity(0.9),
+            elevation: 0,
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+        ),
       ),
     );
   }
@@ -217,16 +228,23 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
           padding: const EdgeInsets.all(16),
           child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _showAddVideoDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('영상 추가'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFB6C1),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: ElevatedButton.icon(
+                  onPressed: _showAddVideoDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('영상 추가'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _accentColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                 ),
               ),
             ),
