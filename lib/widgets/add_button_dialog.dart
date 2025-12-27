@@ -177,20 +177,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
         ),
         GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.close, color: Colors.black54, size: 20),
-              ),
-            ),
-          ),
+          child: const Icon(Icons.close, color: Colors.black54, size: 20),
         ),
       ],
     );
@@ -595,14 +582,7 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
                     ),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.close, color: Colors.black54, size: 20),
-                      ),
+                      child: const Icon(Icons.close, color: Colors.black54, size: 20),
                     ),
                   ],
                 ),

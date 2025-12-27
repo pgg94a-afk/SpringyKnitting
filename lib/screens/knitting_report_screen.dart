@@ -365,24 +365,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.8),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Icon(Icons.arrow_back_ios_new, size: 18),
-                ),
-              ),
-            ),
+            child: const Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.black54),
           ),
           const SizedBox(width: 12),
           const Text(

@@ -405,12 +405,12 @@ class _StitchPadState extends State<StitchPad> {
                       width: 22,
                       height: 22,
                       decoration: BoxDecoration(
-                        color: _deleteColor,
+                        color: _accentColor,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: _deleteColor.withOpacity(0.3),
+                            color: _accentColor.withOpacity(0.3),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),

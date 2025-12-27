@@ -237,14 +237,7 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
         ),
         GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.close, color: Colors.black54, size: 20),
-          ),
+          child: const Icon(Icons.close, color: Colors.black54, size: 20),
         ),
       ],
     );
@@ -1110,14 +1103,7 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
                     ),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.close, color: Colors.black54, size: 20),
-                      ),
+                      child: const Icon(Icons.close, color: Colors.black54, size: 20),
                     ),
                   ],
                 ),
