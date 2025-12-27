@@ -16,7 +16,7 @@ class AddButtonDialog extends StatefulWidget {
 
 class _AddButtonDialogState extends State<AddButtonDialog> {
   CustomButton? _selectedPreset;
-  Color _selectedColor = const Color(0xFFE5E4E3);
+  Color _selectedColor = Colors.white;
   final TextEditingController _hexController = TextEditingController();
   final TextEditingController _abbreviationController = TextEditingController();
   final TextEditingController _koreanNameController = TextEditingController();
@@ -27,7 +27,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
   // HSV 색상 값
   double _hue = 0;
   double _saturation = 0;
-  double _value = 0.9;
+  double _value = 1.0;
 
   // Liquid Glass 색상 정의
   static const Color _glassBackground = Color(0xFFF1F0EF);
@@ -37,7 +37,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
   @override
   void initState() {
     super.initState();
-    _hexController.text = 'E5E4E3';
+    _hexController.text = 'FFFFFF';
     final hsv = HSVColor.fromColor(_selectedColor);
     _hue = hsv.hue;
     _saturation = hsv.saturation;
@@ -94,7 +94,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
 
   Color _getContrastColor(Color color) {
     final luminance = color.computeLuminance();
-    return luminance > 0.5 ? Colors.black87 : Colors.white;
+    return luminance > 0.5 ? Colors.black : Colors.white;
   }
 
   void _updateFromHex(String hex) {

@@ -528,7 +528,7 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
               button.koreanName,
               style: TextStyle(
                 fontSize: 8,
-                color: _getContrastColor(button.color).withOpacity(0.7),
+                color: _getContrastColor(button.color).withOpacity(0.85),
               ),
               maxLines: 1,
             ),
@@ -756,7 +756,7 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
                               _koreanNameController.text,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: _getContrastColor(_selectedColor).withOpacity(0.7),
+                                color: _getContrastColor(_selectedColor).withOpacity(0.85),
                               ),
                               maxLines: 1,
                             ),
@@ -833,7 +833,7 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
 
   Color _getContrastColor(Color color) {
     final luminance = color.computeLuminance();
-    return luminance > 0.5 ? Colors.black87 : Colors.white;
+    return luminance > 0.5 ? Colors.black : Colors.white;
   }
 
   Widget _buildAddButton() {

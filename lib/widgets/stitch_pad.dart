@@ -449,7 +449,7 @@ class _StitchPadState extends State<StitchPad> {
               button.koreanName,
               style: TextStyle(
                 fontSize: 10,
-                color: _getContrastColor(button.color).withOpacity(0.7),
+                color: _getContrastColor(button.color).withOpacity(0.85),
               ),
               maxLines: 1,
             ),
@@ -525,7 +525,7 @@ class _StitchPadState extends State<StitchPad> {
 
   Color _getContrastColor(Color color) {
     final luminance = color.computeLuminance();
-    return luminance > 0.5 ? Colors.black87 : Colors.white;
+    return luminance > 0.5 ? Colors.black : Colors.white;
   }
 
   Widget _buildSideButtons(double buttonSize) {
