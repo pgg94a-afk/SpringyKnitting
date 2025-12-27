@@ -8,8 +8,11 @@ class StitchPad extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onSettingsTap;
 
-  static const double buttonSize = 70.0;
+  static const int gridColumns = 3;
+  static const int gridRows = 3;
   static const double buttonSpacing = 8.0;
+  static const double minButtonSize = 50.0;
+  static const double maxButtonSize = 70.0;
 
   const StitchPad({
     super.key,
@@ -31,7 +34,7 @@ class StitchPad extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildButtonsGrid(),
+          _buildMainSection(),
           const SizedBox(height: 12),
           _buildAddRowButton(),
         ],
@@ -39,56 +42,77 @@ class StitchPad extends StatelessWidget {
     );
   }
 
-  Widget _buildButtonsGrid() {
+  Widget _buildMainSection() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 사용 가능한 너비에서 최대 열 수 계산
         final availableWidth = constraints.maxWidth;
-        final columnCount = ((availableWidth + buttonSpacing) / (buttonSize + buttonSpacing)).floor();
-        final effectiveColumnCount = columnCount > 0 ? columnCount : 1;
 
-        // 모든 버튼 목록 (사용자 버튼 + 삭제 + 세팅)
-        final allButtons = <Widget>[
-          ...buttons.map((button) => _buildStitchButton(button)),
-          _buildDeleteButton(),
-          _buildSettingsButton(),
-        ];
+        // 8:2 비율 계산 (오른쪽에 여백 포함)
+        final rightSectionWidth = 70.0; // 삭제/세팅 버튼 너비
+        final leftSectionWidth = availableWidth - rightSectionWidth - buttonSpacing;
 
-        // 행 수 계산
-        final rowCount = (allButtons.length / effectiveColumnCount).ceil();
+        // 3x3 그리드에 맞는 버튼 크기 계산
+        final buttonSize = ((leftSectionWidth - (buttonSpacing * (gridColumns - 1))) / gridColumns)
+            .clamp(minButtonSize, maxButtonSize);
 
-        return Column(
-          children: List.generate(rowCount, (rowIndex) {
-            final startIndex = rowIndex * effectiveColumnCount;
-            final endIndex = (startIndex + effectiveColumnCount).clamp(0, allButtons.length);
-            final rowButtons = allButtons.sublist(startIndex, endIndex);
+        // 실제 왼쪽 섹션 너비 (버튼 크기 기반)
+        final actualLeftWidth = (buttonSize * gridColumns) + (buttonSpacing * (gridColumns - 1));
 
-            return Padding(
-              padding: EdgeInsets.only(bottom: rowIndex < rowCount - 1 ? buttonSpacing : 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: rowButtons.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final button = entry.value;
-                  return Padding(
-                    padding: EdgeInsets.only(right: index < rowButtons.length - 1 ? buttonSpacing : 0),
-                    child: button,
-                  );
-                }).toList(),
+        // 버튼 높이 (3행 기준)
+        final totalHeight = (buttonSize * gridRows) + (buttonSpacing * (gridRows - 1));
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 왼쪽: 버튼 패드 (3x3)
+            SizedBox(
+              width: actualLeftWidth,
+              height: totalHeight,
+              child: _buildButtonGrid(buttonSize),
+            ),
+            const SizedBox(width: buttonSpacing),
+            // 오른쪽: 삭제/세팅 버튼
+            Expanded(
+              child: SizedBox(
+                height: totalHeight,
+                child: _buildSideButtons(),
               ),
-            );
-          }),
+            ),
+          ],
         );
       },
     );
   }
 
-  Widget _buildStitchButton(CustomButton button) {
+  Widget _buildButtonGrid(double buttonSize) {
+    return Column(
+      children: List.generate(gridRows, (rowIndex) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: rowIndex < gridRows - 1 ? buttonSpacing : 0),
+          child: Row(
+            children: List.generate(gridColumns, (colIndex) {
+              final buttonIndex = rowIndex * gridColumns + colIndex;
+              final isLast = colIndex == gridColumns - 1;
+
+              return Padding(
+                padding: EdgeInsets.only(right: isLast ? 0 : buttonSpacing),
+                child: buttonIndex < buttons.length
+                    ? _buildStitchButton(buttons[buttonIndex], buttonSize)
+                    : _buildEmptySlot(buttonSize),
+              );
+            }),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildStitchButton(CustomButton button, double size) {
     return GestureDetector(
       onTap: () => onButtonTap(button),
       child: Container(
-        width: buttonSize,
-        height: buttonSize,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           color: button.color,
           borderRadius: BorderRadius.circular(12),
@@ -100,14 +124,17 @@ class StitchPad extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                button.abbreviation,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: _getContrastColor(button.color),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  button.abbreviation,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: _getContrastColor(button.color),
+                  ),
                 ),
               ),
             ),
@@ -119,7 +146,7 @@ class StitchPad extends StatelessWidget {
                 child: Text(
                   button.koreanName,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 10,
                     color: _getContrastColor(button.color).withOpacity(0.7),
                   ),
                   maxLines: 1,
@@ -132,17 +159,46 @@ class StitchPad extends StatelessWidget {
     );
   }
 
+  Widget _buildEmptySlot(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFFD1DC).withOpacity(0.5),
+          width: 1,
+          style: BorderStyle.solid,
+        ),
+      ),
+    );
+  }
+
   Color _getContrastColor(Color color) {
     final luminance = color.computeLuminance();
     return luminance > 0.5 ? Colors.black87 : Colors.white;
+  }
+
+  Widget _buildSideButtons() {
+    return Column(
+      children: [
+        Expanded(
+          child: _buildDeleteButton(),
+        ),
+        const SizedBox(height: buttonSpacing),
+        Expanded(
+          child: _buildSettingsButton(),
+        ),
+      ],
+    );
   }
 
   Widget _buildDeleteButton() {
     return GestureDetector(
       onTap: onDelete,
       child: Container(
-        width: buttonSize,
-        height: buttonSize,
+        width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -156,14 +212,14 @@ class StitchPad extends StatelessWidget {
           children: [
             Icon(
               Icons.backspace_outlined,
-              size: 24,
+              size: 28,
               color: Color(0xFFFF6B6B),
             ),
-            SizedBox(height: 2),
+            SizedBox(height: 4),
             Text(
               '삭제',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: Colors.black54,
               ),
             ),
@@ -177,8 +233,7 @@ class StitchPad extends StatelessWidget {
     return GestureDetector(
       onTap: onSettingsTap,
       child: Container(
-        width: buttonSize,
-        height: buttonSize,
+        width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -205,6 +260,15 @@ class StitchPad extends StatelessWidget {
                 Icons.palette,
                 size: 28,
                 color: Colors.white,
+              ),
+              SizedBox(height: 4),
+              Text(
+                '설정',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),

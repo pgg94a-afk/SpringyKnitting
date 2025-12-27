@@ -18,14 +18,20 @@ class ButtonSettingsDialog extends StatefulWidget {
 
 class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   late List<CustomButton> _padButtons;
+  List<CustomButton>? _previewButtons; // 드래그 중 미리보기용
+  int? _draggingIndex;
+  int? _targetIndex;
+
   CustomButton? _selectedPreset;
   Color _selectedColor = Colors.white;
   final TextEditingController _hexController = TextEditingController();
   final TextEditingController _abbreviationController = TextEditingController();
   final TextEditingController _koreanNameController = TextEditingController();
 
-  static const double buttonSize = 60.0;
+  static const double buttonSize = 55.0;
   static const double buttonSpacing = 8.0;
+  static const int gridColumns = 3;
+  static const double sideButtonWidth = 55.0;
 
   @override
   void initState() {
@@ -99,13 +105,51 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
     });
   }
 
-  void _onReorder(int oldIndex, int newIndex) {
+  // 드래그 시작
+  void _onDragStart(int index) {
+    HapticFeedback.mediumImpact();
     setState(() {
-      if (oldIndex < newIndex) {
-        newIndex -= 1;
-      }
-      final item = _padButtons.removeAt(oldIndex);
-      _padButtons.insert(newIndex, item);
+      _draggingIndex = index;
+      _targetIndex = index;
+      _previewButtons = List.from(_padButtons);
+    });
+  }
+
+  // 드래그 중 타겟 위치 업데이트 (실시간 미리보기)
+  void _onDragUpdate(int newTargetIndex) {
+    if (_draggingIndex == null || newTargetIndex == _targetIndex) return;
+    if (newTargetIndex < 0 || newTargetIndex >= _padButtons.length) return;
+
+    setState(() {
+      _targetIndex = newTargetIndex;
+      // 미리보기 리스트 재구성
+      _previewButtons = List.from(_padButtons);
+      final item = _previewButtons!.removeAt(_draggingIndex!);
+      _previewButtons!.insert(newTargetIndex, item);
+    });
+  }
+
+  // 드래그 완료
+  void _onDragEnd(bool accepted) {
+    if (_draggingIndex != null && _targetIndex != null && _targetIndex != _draggingIndex) {
+      setState(() {
+        final item = _padButtons.removeAt(_draggingIndex!);
+        _padButtons.insert(_targetIndex!, item);
+      });
+    }
+    setState(() {
+      _draggingIndex = null;
+      _targetIndex = null;
+      _previewButtons = null;
+    });
+  }
+
+  // 드래그 취소
+  void _onDragCancel() {
+    setState(() {
+      _draggingIndex = null;
+      _targetIndex = null;
+      _previewButtons = null;
     });
   }
 
@@ -170,6 +214,9 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   }
 
   Widget _buildCurrentPadSection() {
+    // 드래그 중이면 미리보기 리스트, 아니면 실제 리스트
+    final displayButtons = _previewButtons ?? _padButtons;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -198,233 +245,319 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFFFFD1DC)),
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final availableWidth = constraints.maxWidth;
-              final columnCount = ((availableWidth + buttonSpacing) / (buttonSize + buttonSpacing)).floor();
-              final effectiveColumnCount = columnCount > 0 ? columnCount : 1;
-
-              // 모든 버튼: 사용자 버튼 + 삭제 + 세팅
-              final totalButtonCount = _padButtons.length + 2;
-              final rowCount = (totalButtonCount / effectiveColumnCount).ceil();
-
-              return Column(
-                children: List.generate(rowCount, (rowIndex) {
-                  return Padding(
-                    padding: EdgeInsets.only(bottom: rowIndex < rowCount - 1 ? buttonSpacing : 0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: _buildRowButtons(rowIndex, effectiveColumnCount),
-                    ),
-                  );
-                }),
-              );
-            },
-          ),
+          child: _buildPadGrid(displayButtons),
         ),
       ],
     );
   }
 
-  List<Widget> _buildRowButtons(int rowIndex, int columnCount) {
-    final List<Widget> rowWidgets = [];
-    final startIndex = rowIndex * columnCount;
-    final totalButtonCount = _padButtons.length + 2;
-
-    for (int i = 0; i < columnCount; i++) {
-      final globalIndex = startIndex + i;
-      if (globalIndex >= totalButtonCount) break;
-
-      if (i > 0) {
-        rowWidgets.add(const SizedBox(width: buttonSpacing));
-      }
-
-      // 마지막 두 개는 삭제와 세팅 버튼 (고정)
-      if (globalIndex == totalButtonCount - 2) {
-        rowWidgets.add(_buildFixedDeleteButton());
-      } else if (globalIndex == totalButtonCount - 1) {
-        rowWidgets.add(_buildFixedSettingsButton());
-      } else {
-        rowWidgets.add(_buildDraggablePadButton(globalIndex, _padButtons[globalIndex]));
-      }
+  Widget _buildPadGrid(List<CustomButton> displayButtons) {
+    if (displayButtons.isEmpty) {
+      return Row(
+        children: [
+          const Expanded(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Text(
+                  '버튼을 추가해주세요',
+                  style: TextStyle(color: Colors.black54),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: buttonSpacing),
+          SizedBox(
+            width: sideButtonWidth,
+            child: _buildSideButtons(),
+          ),
+        ],
+      );
     }
 
-    return rowWidgets;
+    final rowCount = (displayButtons.length / gridColumns).ceil();
+    final totalHeight = (buttonSize * rowCount) + (buttonSpacing * (rowCount - 1));
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 왼쪽: 버튼 그리드
+        Expanded(
+          child: Column(
+            children: List.generate(rowCount, (rowIndex) {
+              return Padding(
+                padding: EdgeInsets.only(bottom: rowIndex < rowCount - 1 ? buttonSpacing : 0),
+                child: Row(
+                  children: List.generate(gridColumns, (colIndex) {
+                    final buttonIndex = rowIndex * gridColumns + colIndex;
+
+                    if (buttonIndex >= displayButtons.length) {
+                      return Expanded(child: Container());
+                    }
+
+                    final button = displayButtons[buttonIndex];
+                    // 실제 인덱스 찾기 (미리보기에서의 위치가 아닌 원본 인덱스)
+                    final originalIndex = _padButtons.indexOf(button);
+                    final isDragging = _draggingIndex != null && originalIndex == _draggingIndex;
+                    final isTargetPosition = _previewButtons != null && buttonIndex == _targetIndex;
+
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: colIndex < gridColumns - 1 ? buttonSpacing : 0),
+                        child: _buildDraggableButton(
+                          button,
+                          originalIndex,
+                          buttonIndex,
+                          isDragging,
+                          isTargetPosition,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(width: buttonSpacing),
+        // 오른쪽: 삭제/세팅 버튼
+        SizedBox(
+          width: sideButtonWidth,
+          height: totalHeight,
+          child: _buildSideButtons(),
+        ),
+      ],
+    );
   }
 
-  Widget _buildDraggablePadButton(int index, CustomButton button) {
+  Widget _buildDraggableButton(
+    CustomButton button,
+    int originalIndex,
+    int displayIndex,
+    bool isDragging,
+    bool isTargetPosition,
+  ) {
     return LongPressDraggable<int>(
-      data: index,
+      data: originalIndex,
+      delay: const Duration(milliseconds: 150),
       feedback: Material(
         color: Colors.transparent,
-        elevation: 4,
-        child: _buildPadButtonContent(button, showDelete: false, scale: 1.1),
+        elevation: 8,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: buttonSize * 1.1,
+          height: buttonSize * 1.1,
+          decoration: BoxDecoration(
+            color: button.color,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFFFB6C1), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: _buildButtonContent(button),
+        ),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _buildPadButtonContent(button, showDelete: false),
+      childWhenDragging: Container(
+        height: buttonSize,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFB6C1).withOpacity(0.3),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: const Color(0xFFFFB6C1),
+            width: 2,
+            style: BorderStyle.solid,
+          ),
+        ),
       ),
-      onDragStarted: () {
-        HapticFeedback.mediumImpact();
-      },
+      onDragStarted: () => _onDragStart(originalIndex),
+      onDragEnd: (details) => _onDragEnd(details.wasAccepted),
+      onDraggableCanceled: (_, __) => _onDragCancel(),
       child: DragTarget<int>(
-        onWillAcceptWithDetails: (details) => details.data != index,
-        onAcceptWithDetails: (details) {
-          _onReorder(details.data, index);
+        onWillAcceptWithDetails: (details) {
+          if (details.data != originalIndex) {
+            _onDragUpdate(displayIndex);
+          }
+          return details.data != originalIndex;
         },
+        onAcceptWithDetails: (details) {
+          // 드래그 완료는 onDragEnd에서 처리
+        },
+        onLeave: (_) {},
         builder: (context, candidateData, rejectedData) {
-          final isTarget = candidateData.isNotEmpty;
+          final isHovering = candidateData.isNotEmpty;
+
           return AnimatedContainer(
             duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            height: buttonSize,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              border: isTarget
+              border: isHovering || isTargetPosition
                   ? Border.all(color: const Color(0xFFFFB6C1), width: 2)
                   : null,
             ),
-            child: _buildPadButtonContent(button, showDelete: true, onDelete: () => _removeButtonFromPad(index)),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: isDragging ? 0.0 : 1.0,
+                  child: Container(
+                    width: double.infinity,
+                    height: buttonSize,
+                    decoration: BoxDecoration(
+                      color: button.color,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
+                    ),
+                    child: _buildButtonContent(button),
+                  ),
+                ),
+                if (!isDragging)
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: GestureDetector(
+                      onTap: () => _removeButtonFromPad(originalIndex),
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF6B6B),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           );
         },
       ),
     );
   }
 
-  Widget _buildPadButtonContent(CustomButton button, {bool showDelete = true, VoidCallback? onDelete, double scale = 1.0}) {
-    return Transform.scale(
-      scale: scale,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: buttonSize,
-            height: buttonSize,
+  Widget _buildButtonContent(CustomButton button) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              button.abbreviation,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: _getContrastColor(button.color),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              button.koreanName,
+              style: TextStyle(
+                fontSize: 8,
+                color: _getContrastColor(button.color).withOpacity(0.7),
+              ),
+              maxLines: 1,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSideButtons() {
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
+            width: double.infinity,
             decoration: BoxDecoration(
-              color: button.color,
+              color: Colors.grey[100],
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
             ),
-            child: Column(
+            child: const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      button.abbreviation,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: _getContrastColor(button.color),
-                      ),
-                    ),
-                  ),
+                Icon(
+                  Icons.backspace_outlined,
+                  size: 20,
+                  color: Color(0xFFFF6B6B),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      button.koreanName,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: _getContrastColor(button.color).withOpacity(0.7),
-                      ),
-                      maxLines: 1,
-                    ),
+                SizedBox(height: 2),
+                Text(
+                  '삭제',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Colors.black54,
                   ),
                 ),
               ],
             ),
           ),
-          if (showDelete && onDelete != null)
-            Positioned(
-              top: -6,
-              right: -6,
-              child: GestureDetector(
-                onTap: onDelete,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF6B6B),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    size: 12,
+        ),
+        const SizedBox(height: buttonSpacing),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
+            ),
+            child: ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [
+                  Color(0xFFFF6B6B),
+                  Color(0xFFFFE66D),
+                  Color(0xFF4ECDC4),
+                  Color(0xFF95E1D3),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ).createShader(bounds),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.palette,
+                    size: 20,
                     color: Colors.white,
                   ),
-                ),
+                  SizedBox(height: 2),
+                  Text(
+                    '설정',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFixedDeleteButton() {
-    return Container(
-      width: buttonSize,
-      height: buttonSize,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
-      ),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.backspace_outlined,
-            size: 20,
-            color: Color(0xFFFF6B6B),
           ),
-          SizedBox(height: 2),
-          Text(
-            '삭제',
-            style: TextStyle(
-              fontSize: 9,
-              color: Colors.black54,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFixedSettingsButton() {
-    return Container(
-      width: buttonSize,
-      height: buttonSize,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFFD1DC), width: 1),
-      ),
-      child: ShaderMask(
-        shaderCallback: (bounds) => const LinearGradient(
-          colors: [
-            Color(0xFFFF6B6B),
-            Color(0xFFFFE66D),
-            Color(0xFF4ECDC4),
-            Color(0xFF95E1D3),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ).createShader(bounds),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.palette,
-              size: 24,
-              color: Colors.white,
-            ),
-          ],
         ),
-      ),
+      ],
     );
   }
 
