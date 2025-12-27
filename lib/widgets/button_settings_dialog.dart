@@ -87,7 +87,6 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
       _selectedPreset = null;
       _selectedColor = Colors.white;
       _hexController.text = 'FFFFFF';
-      _showColorPicker = false;
     });
   }
 
