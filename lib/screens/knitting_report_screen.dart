@@ -168,11 +168,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   Widget _buildPageView() {
     return PageView(
       controller: _pageController,
-      onPageChanged: (index) {
-        setState(() {
-          _currentNavIndex = index;
-        });
-      },
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         _buildRecordTab(),
         _buildVideoTab(),
@@ -233,6 +229,12 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   Widget _buildBottomNavigationBar() {
+    const navItems = [
+      (Icons.edit_note, '기록'),
+      (Icons.play_circle_outline, '영상'),
+      (Icons.grid_on, '도안'),
+    ];
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -248,13 +250,41 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.edit_note, '기록'),
-              _buildNavItem(1, Icons.play_circle_outline, '영상'),
-              _buildNavItem(2, Icons.grid_on, '도안'),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth / 3;
+              const indicatorWidth = 72.0;
+              final indicatorLeft =
+                  (itemWidth * _currentNavIndex) + (itemWidth - indicatorWidth) / 2;
+
+              return Stack(
+                children: [
+                  // 슬라이딩 인디케이터
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    left: indicatorLeft,
+                    top: 0,
+                    bottom: 0,
+                    width: indicatorWidth,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFB6C1).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                  // 네비게이션 아이템들
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      for (int i = 0; i < navItems.length; i++)
+                        _buildNavItem(i, navItems[i].$1, navItems[i].$2),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -265,25 +295,25 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     final isSelected = _currentNavIndex == index;
     return GestureDetector(
       onTap: () {
-        _pageController.animateToPage(
-          index,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        setState(() {
+          _currentNavIndex = index;
+        });
+        _pageController.jumpToPage(index);
       },
+      behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFB6C1).withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isSelected ? const Color(0xFFFFB6C1) : Colors.black38,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                icon,
+                key: ValueKey('$index-$isSelected'),
+                size: 24,
+                color: isSelected ? const Color(0xFFFFB6C1) : Colors.black38,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
