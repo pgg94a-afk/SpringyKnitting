@@ -6,7 +6,8 @@ class StitchPad extends StatelessWidget {
   final Function(CustomButton) onButtonTap;
   final VoidCallback onAddRow;
   final VoidCallback onDelete;
-  final VoidCallback onSettingsTap;
+  final VoidCallback onLayoutTap;
+  final VoidCallback onEmptySlotTap;
 
   static const int gridColumns = 3;
   static const int gridRows = 3;
@@ -20,7 +21,8 @@ class StitchPad extends StatelessWidget {
     required this.onButtonTap,
     required this.onAddRow,
     required this.onDelete,
-    required this.onSettingsTap,
+    required this.onLayoutTap,
+    required this.onEmptySlotTap,
   });
 
   @override
@@ -160,16 +162,26 @@ class StitchPad extends StatelessWidget {
   }
 
   Widget _buildEmptySlot(double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFFFD1DC).withOpacity(0.5),
-          width: 1,
-          style: BorderStyle.solid,
+    return GestureDetector(
+      onTap: onEmptySlotTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFFFD1DC).withOpacity(0.5),
+            width: 1,
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Center(
+          child: Icon(
+            Icons.add,
+            size: size * 0.4,
+            color: const Color(0xFFFFB6C1).withOpacity(0.6),
+          ),
         ),
       ),
     );
@@ -188,7 +200,7 @@ class StitchPad extends StatelessWidget {
         ),
         const SizedBox(height: buttonSpacing),
         Expanded(
-          child: _buildSettingsButton(),
+          child: _buildLayoutButton(),
         ),
       ],
     );
@@ -229,9 +241,9 @@ class StitchPad extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingsButton() {
+  Widget _buildLayoutButton() {
     return GestureDetector(
-      onTap: onSettingsTap,
+      onTap: onLayoutTap,
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
@@ -257,15 +269,15 @@ class StitchPad extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.palette,
+                Icons.grid_view_rounded,
                 size: 28,
                 color: Colors.white,
               ),
               SizedBox(height: 4),
               Text(
-                '설정',
+                '레이아웃',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
                 ),

@@ -3,6 +3,7 @@ import '../models/stitch.dart';
 import '../models/custom_button.dart';
 import '../widgets/stitch_pad.dart';
 import '../widgets/button_settings_dialog.dart';
+import '../widgets/add_button_dialog.dart';
 import 'youtube_list_screen.dart';
 
 class KnittingReportScreen extends StatefulWidget {
@@ -116,6 +117,19 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     );
   }
 
+  void _showAddButton() {
+    showDialog(
+      context: context,
+      builder: (context) => AddButtonDialog(
+        onButtonAdded: (button) {
+          setState(() {
+            _padButtons.add(button);
+          });
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -145,7 +159,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               onButtonTap: _addStitch,
               onAddRow: _addRow,
               onDelete: _removeLastStitch,
-              onSettingsTap: _showButtonSettings,
+              onLayoutTap: _showButtonSettings,
+              onEmptySlotTap: _showAddButton,
             ),
           ],
         ),
