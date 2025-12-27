@@ -227,8 +227,8 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
-              width: 140,
-              height: 140,
+              width: 160,
+              height: 160,
               decoration: BoxDecoration(
                 color: _selectedColor.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(20),
@@ -311,10 +311,11 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
         // 색상 선택 UI
         Expanded(
           child: SizedBox(
-            height: 140,
+            height: 160,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
+                const svHeight = 94.0;
                 return Column(
                   children: [
                     // Saturation-Value 그리드
@@ -324,7 +325,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                           details.localPosition.dx,
                           details.localPosition.dy,
                           width,
-                          90,
+                          svHeight,
                         );
                       },
                       onPanUpdate: (details) {
@@ -332,11 +333,11 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                           details.localPosition.dx,
                           details.localPosition.dy,
                           width,
-                          90,
+                          svHeight,
                         );
                       },
                       child: Container(
-                        height: 90,
+                        height: svHeight,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           gradient: LinearGradient(
@@ -362,7 +363,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                             children: [
                               Positioned(
                                 left: (_saturation * width) - 8,
-                                top: ((1 - _value) * 90) - 8,
+                                top: ((1 - _value) * svHeight) - 8,
                                 child: Container(
                                   width: 16,
                                   height: 16,
@@ -393,7 +394,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                         _updateHue(details.localPosition.dx, width);
                       },
                       child: Container(
-                        height: 20,
+                        height: 24,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           gradient: const LinearGradient(
