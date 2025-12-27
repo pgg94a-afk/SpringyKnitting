@@ -120,6 +120,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   void _showAddButton() {
     showDialog(
       context: context,
+      barrierColor: Colors.black.withOpacity(0.1),
       builder: (context) => AddButtonDialog(
         onButtonAdded: (button) {
           setState(() {

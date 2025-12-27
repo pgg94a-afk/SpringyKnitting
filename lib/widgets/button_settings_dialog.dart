@@ -825,6 +825,7 @@ class _ButtonSettingsDialogState extends State<ButtonSettingsDialog> {
   void _showColorPickerDialog() {
     showDialog(
       context: context,
+      barrierColor: Colors.black.withOpacity(0.1),
       builder: (context) => _ColorPickerPopup(
         initialColor: _selectedColor,
         onColorSelected: (color) {
