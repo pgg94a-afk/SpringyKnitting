@@ -10,6 +10,7 @@ class StitchPad extends StatefulWidget {
   final VoidCallback onEmptySlotTap;
   final Function(List<CustomButton>) onButtonsReordered;
   final Function(int) onButtonDeleted;
+  final VoidCallback? onCollapse;
 
   static const int gridRows = 3;
   static const int gridColumns = 3;
@@ -27,6 +28,7 @@ class StitchPad extends StatefulWidget {
     required this.onEmptySlotTap,
     required this.onButtonsReordered,
     required this.onButtonDeleted,
+    this.onCollapse,
   });
 
   @override
@@ -110,14 +112,62 @@ class _StitchPadState extends State<StitchPad> {
     );
   }
 
-  Widget _buildEditButton() {
-    return GestureDetector(
-      onTap: _toggleEditMode,
-      child: Icon(
-        _isEditMode ? Icons.check : Icons.edit,
-        size: 20,
-        color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.black54,
-      ),
+  Widget _buildHeaderButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // 편집 버튼
+        GestureDetector(
+          onTap: _toggleEditMode,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isEditMode ? Icons.check : Icons.edit,
+                size: 16,
+                color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.black54,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _isEditMode ? '완료' : '편집',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // 구분선
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          height: 16,
+          width: 1,
+          color: Colors.black26,
+        ),
+        // 접기 버튼
+        GestureDetector(
+          onTap: widget.onCollapse,
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.keyboard_arrow_down,
+                size: 18,
+                color: Colors.black54,
+              ),
+              SizedBox(width: 2),
+              Text(
+                '접기',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -139,14 +189,8 @@ class _StitchPadState extends State<StitchPad> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 편집 버튼 - 키패드 3x3 영역 우측 상단에 위치
-            SizedBox(
-              width: actualGridWidth,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: _buildEditButton(),
-              ),
-            ),
+            // 헤더 버튼 (편집 | 접기) - 우측 상단에 위치
+            _buildHeaderButtons(),
             const SizedBox(height: 8),
             // 메인 영역 - 키패드와 사이드 버튼이 붙어있게
             Row(
