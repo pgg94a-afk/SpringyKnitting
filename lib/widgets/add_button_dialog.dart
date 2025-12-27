@@ -265,7 +265,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                         hintStyle: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          color: contrastColor.withOpacity(0.3),
+                          color: contrastColor
                         ),
                         border: InputBorder.none,
                         counterText: '',
@@ -286,13 +286,13 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: contrastColor.withOpacity(0.7),
+                        color: contrastColor
                       ),
                       decoration: InputDecoration(
                         hintText: '한글명',
                         hintStyle: TextStyle(
                           fontSize: 14,
-                          color: contrastColor.withOpacity(0.3),
+                          color: contrastColor
                         ),
                         border: InputBorder.none,
                         counterText: '',
