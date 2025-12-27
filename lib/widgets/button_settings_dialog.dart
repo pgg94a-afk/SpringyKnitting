@@ -975,29 +975,6 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
 
   static const Color _selectedAccent = Color(0xFF3B82F6);
 
-  static const List<Color> _paletteColors = [
-    Colors.white,
-    Color(0xFFF1F0EF),
-    Color(0xFFE5E4E3),
-    Color(0xFFE6E6FA),
-    Color(0xFFE0FFFF),
-    Color(0xFFE8F5E9),
-    Color(0xFFFFF8DC),
-    Color(0xFFFFE4E1),
-    Color(0xFFDDA0DD),
-    Color(0xFFADD8E6),
-    Color(0xFF98FB98),
-    Color(0xFFFFDAB9),
-    Color(0xFFF0E68C),
-    Color(0xFFD3D3D3),
-    Color(0xFF3B82F6),
-    Color(0xFF10B981),
-    Color(0xFFF59E0B),
-    Color(0xFFEF4444),
-    Color(0xFF8B5CF6),
-    Color(0xFFEC4899),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -1043,20 +1020,19 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
     });
   }
 
-  void _selectPaletteColor(Color color) {
-    final hsv = HSVColor.fromColor(color);
+  void _updateFromPosition(double dx, double dy, double width, double height) {
     setState(() {
-      _selectedColor = color;
-      _hue = hsv.hue;
-      _saturation = hsv.saturation;
-      _value = hsv.value;
-      _hexController.text = _colorToHex(color);
+      _saturation = (dx / width).clamp(0.0, 1.0);
+      _value = (1 - dy / height).clamp(0.0, 1.0);
+      _updateFromHSV();
     });
   }
 
-  Color _getContrastColor(Color color) {
-    final luminance = color.computeLuminance();
-    return luminance > 0.5 ? Colors.black87 : Colors.white;
+  void _updateHue(double dy, double height) {
+    setState(() {
+      _hue = (dy / height * 360).clamp(0.0, 360.0);
+      _updateFromHSV();
+    });
   }
 
   @override
@@ -1172,128 +1148,138 @@ class _ColorPickerPopupState extends State<_ColorPickerPopup> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _paletteColors.map((color) {
-                          final isSelected = _selectedColor.value == color.value;
-                          return GestureDetector(
-                            onTap: () => _selectPaletteColor(color),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: isSelected ? _selectedAccent : Colors.white.withOpacity(0.8),
-                                  width: isSelected ? 3 : 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
+                const SizedBox(height: 20),
+                // 2D 색상 피커
+                Row(
+                  children: [
+                    // Saturation-Value 그리드
+                    Expanded(
+                      child: GestureDetector(
+                        onPanDown: (details) {
+                          final box = context.findRenderObject() as RenderBox;
+                          final localPosition = box.globalToLocal(details.globalPosition);
+                          _updateFromPosition(
+                            localPosition.dx,
+                            localPosition.dy - 160,
+                            box.size.width - 50,
+                            250,
+                          );
+                        },
+                        onPanUpdate: (details) {
+                          final box = context.findRenderObject() as RenderBox;
+                          final localPosition = box.globalToLocal(details.globalPosition);
+                          _updateFromPosition(
+                            localPosition.dx,
+                            localPosition.dy - 160,
+                            box.size.width - 50,
+                            250,
+                          );
+                        },
+                        child: Container(
+                          height: 250,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white,
+                                HSVColor.fromAHSV(1, _hue, 1, 1).toColor(),
+                              ],
+                            ),
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              gradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black,
                                 ],
                               ),
-                              child: isSelected
-                                  ? Icon(Icons.check, size: 16, color: _getContrastColor(color))
-                                  : null,
                             ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              const SizedBox(width: 40, child: Text('색상', style: TextStyle(fontSize: 12))),
-                              Expanded(
-                                child: SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    trackHeight: 12,
-                                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                                    activeTrackColor: HSVColor.fromAHSV(1, _hue, 1, 1).toColor(),
-                                    inactiveTrackColor: Colors.grey[300],
-                                    overlayColor: _selectedAccent.withOpacity(0.2),
-                                  ),
-                                  child: Slider(
-                                    value: _hue,
-                                    min: 0,
-                                    max: 360,
-                                    onChanged: (value) {
-                                      _hue = value;
-                                      _updateFromHSV();
-                                    },
+                            child: Stack(
+                              children: [
+                                Positioned(
+                                  left: _saturation * (MediaQuery.of(context).size.width - 100) - 10,
+                                  top: (1 - _value) * 250 - 10,
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 3),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.3),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                          Row(
-                            children: [
-                              const SizedBox(width: 40, child: Text('채도', style: TextStyle(fontSize: 12))),
-                              Expanded(
-                                child: Slider(
-                                  value: _saturation,
-                                  min: 0,
-                                  max: 1,
-                                  activeColor: _selectedAccent,
-                                  onChanged: (value) {
-                                    _saturation = value;
-                                    _updateFromHSV();
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              const SizedBox(width: 40, child: Text('명도', style: TextStyle(fontSize: 12))),
-                              Expanded(
-                                child: Slider(
-                                  value: _value,
-                                  min: 0,
-                                  max: 1,
-                                  activeColor: _selectedAccent,
-                                  onChanged: (value) {
-                                    _value = value;
-                                    _updateFromHSV();
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    // Hue 바
+                    GestureDetector(
+                      onPanDown: (details) {
+                        final box = context.findRenderObject() as RenderBox;
+                        final localPosition = box.globalToLocal(details.globalPosition);
+                        _updateHue(localPosition.dy - 160, 250);
+                      },
+                      onPanUpdate: (details) {
+                        final box = context.findRenderObject() as RenderBox;
+                        final localPosition = box.globalToLocal(details.globalPosition);
+                        _updateHue(localPosition.dy - 160, 250);
+                      },
+                      child: Container(
+                        width: 30,
+                        height: 250,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0xFFFF0000),
+                              Color(0xFFFFFF00),
+                              Color(0xFF00FF00),
+                              Color(0xFF00FFFF),
+                              Color(0xFF0000FF),
+                              Color(0xFFFF00FF),
+                              Color(0xFFFF0000),
+                            ],
+                          ),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              top: (_hue / 360 * 250) - 2,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      blurRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 SizedBox(
