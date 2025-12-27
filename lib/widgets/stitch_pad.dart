@@ -37,6 +37,7 @@ class StitchPad extends StatefulWidget {
 
 class _StitchPadState extends State<StitchPad> {
   bool _isEditMode = false;
+  bool _isCollapsed = false;
   int? _draggingIndex;
   int? _targetIndex;
   List<CustomButton>? _previewButtons;
@@ -50,6 +51,16 @@ class _StitchPadState extends State<StitchPad> {
         _previewButtons = null;
       }
     });
+  }
+
+  void _toggleCollapse() {
+    setState(() {
+      _isCollapsed = !_isCollapsed;
+      if (_isCollapsed) {
+        _isEditMode = false;
+      }
+    });
+    widget.onCollapse?.call();
   }
 
   void _onDragStart(int index) {
@@ -98,7 +109,7 @@ class _StitchPadState extends State<StitchPad> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, _isCollapsed ? 8 : 16),
       decoration: const BoxDecoration(
         color: Color(0xFFFFF0F3),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -106,7 +117,11 @@ class _StitchPadState extends State<StitchPad> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildMainSection(),
+          _buildHeaderButtons(),
+          if (!_isCollapsed) ...[
+            const SizedBox(height: 8),
+            _buildKeypadSection(),
+          ],
         ],
       ),
     );
@@ -116,62 +131,81 @@ class _StitchPadState extends State<StitchPad> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        // 편집 버튼
-        GestureDetector(
-          onTap: _toggleEditMode,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _isEditMode ? Icons.check : Icons.edit,
-                size: 16,
-                color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.black54,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _isEditMode ? '완료' : '편집',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.black54,
+        // 편집 버튼 (접혀있을 때는 숨김)
+        if (!_isCollapsed)
+          GestureDetector(
+            onTap: _toggleEditMode,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _isEditMode ? const Color(0xFFFFB6C1) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFFFD1DC),
+                  width: 1,
                 ),
               ),
-            ],
-          ),
-        ),
-        // 구분선
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 12),
-          height: 16,
-          width: 1,
-          color: Colors.black26,
-        ),
-        // 접기 버튼
-        GestureDetector(
-          onTap: widget.onCollapse,
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.keyboard_arrow_down,
-                size: 18,
-                color: Colors.black54,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _isEditMode ? Icons.check : Icons.edit,
+                    size: 14,
+                    color: _isEditMode ? Colors.white : Colors.black54,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _isEditMode ? '완료' : '편집',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: _isEditMode ? Colors.white : Colors.black54,
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 2),
-              Text(
-                '접기',
-                style: TextStyle(
-                  fontSize: 13,
+            ),
+          ),
+        if (!_isCollapsed) const SizedBox(width: 8),
+        // 접기/펼치기 버튼
+        GestureDetector(
+          onTap: _toggleCollapse,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFFFFD1DC),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _isCollapsed ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 16,
                   color: Colors.black54,
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Text(
+                  _isCollapsed ? '펼치기' : '접기',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildMainSection() {
+  Widget _buildKeypadSection() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
@@ -185,31 +219,22 @@ class _StitchPadState extends State<StitchPad> {
         final actualGridWidth = (buttonSize * StitchPad.gridColumns) + (StitchPad.buttonSpacing * (StitchPad.gridColumns - 1));
         final totalHeight = (buttonSize * StitchPad.gridRows) + (StitchPad.buttonSpacing * (StitchPad.gridRows - 1));
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
+        // 키패드와 사이드 버튼
+        return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 헤더 버튼 (편집 | 접기) - 우측 상단에 위치
-            _buildHeaderButtons(),
-            const SizedBox(height: 8),
-            // 메인 영역 - 키패드와 사이드 버튼이 붙어있게
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: actualGridWidth,
-                  height: totalHeight,
-                  child: _buildButtonGrid(buttonSize, StitchPad.gridColumns),
-                ),
-                const SizedBox(width: StitchPad.buttonSpacing),
-                // 사이드 버튼을 남은 공간에 채움
-                Expanded(
-                  child: SizedBox(
-                    height: totalHeight,
-                    child: _buildSideButtons(),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: actualGridWidth,
+              height: totalHeight,
+              child: _buildButtonGrid(buttonSize, StitchPad.gridColumns),
+            ),
+            const SizedBox(width: StitchPad.buttonSpacing),
+            // 사이드 버튼을 남은 공간에 채움
+            Expanded(
+              child: SizedBox(
+                height: totalHeight,
+                child: _buildSideButtons(),
+              ),
             ),
           ],
         );
