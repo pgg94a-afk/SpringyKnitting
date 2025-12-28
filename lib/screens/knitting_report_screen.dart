@@ -65,6 +65,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   final TransformationController _transformationController = TransformationController();
   bool _isGridConfigured = false; // 격자 설정 완료 여부
   final GlobalKey _gridPaintKey = GlobalKey(); // CustomPaint 위치 추적용
+  double? _initialGridHeight; // 초기 그리드 높이 저장
 
   @override
   void initState() {
@@ -557,49 +558,6 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // X 지우기 버튼
-                  if (_excludedCells.isNotEmpty)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.blue,
-                          width: 2,
-                        ),
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _excludedCells.clear();
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.clear_all,
-                                color: Colors.blue,
-                                size: 18,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'X 지우기',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 8),
                   // 초기화 버튼
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 22),
@@ -610,6 +568,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                         _currentTraceRow = 0;
                         _currentTraceCol = 0;
                         _transformationController.value = Matrix4.identity();
+                        _initialGridHeight = null; // 초기 높이 리셋
                       });
                     },
                     tooltip: '처음부터',
@@ -632,7 +591,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '탭: 단일 선택 / 길게 누르고 드래그: 범위 선택',
+                            '탭: X 추가/제거 / 길게 누르고 드래그: 범위 지정',
                             style: TextStyle(fontSize: 11, color: Colors.red),
                           ),
                         ),
@@ -709,9 +668,12 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   Widget _buildInteractiveGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 실제 사용 가능한 공간으로 셀 크기 계산
+        // 초기 높이 저장 (한 번만)
+        _initialGridHeight ??= constraints.maxHeight;
+
+        // 실제 사용 가능한 공간으로 셀 크기 계산 (초기 높이 사용)
         final availableWidth = constraints.maxWidth - 32;
-        final availableHeight = constraints.maxHeight - 16; // 여백
+        final availableHeight = _initialGridHeight! - 16; // 여백
 
         final cellSizeByWidth = availableWidth / _gridCols;
         final cellSizeByHeight = availableHeight / _gridRows;
