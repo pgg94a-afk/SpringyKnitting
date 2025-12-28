@@ -902,33 +902,30 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
   }
 
-  // 어두운 픽셀 개수로 격자선 찾기 (개선된 알고리즘)
+  // 어두운 픽셀 개수로 격자선 찾기 (재설계된 알고리즘)
   List<int> _findGridLines(Map<int, int> darkPixelCount, int totalLength) {
     if (darkPixelCount.isEmpty) return [];
 
-    // 1단계: 어두운 픽셀이 많은 행/열 찾기 (상위 20%)
-    final sortedCounts = darkPixelCount.values.toList()..sort();
-    final threshold = sortedCounts[(sortedCounts.length * 0.8).toInt()];
-
-    // 격자선은 이미지를 관통하므로 최소 60% 이상의 픽셀이 어두워야 함
-    final minDarkPixels = (totalLength * 0.6).toInt();
+    // 1단계: 격자선만 정확히 추출 (매우 엄격한 기준)
+    // 격자선은 이미지를 완전히 관통하므로 최소 70% 이상의 픽셀이 어두워야 함
+    final minDarkPixels = (totalLength * 0.7).toInt();
 
     final candidateLines = <int>[];
     for (final entry in darkPixelCount.entries) {
-      if (entry.value >= threshold && entry.value >= minDarkPixels) {
+      if (entry.value >= minDarkPixels) {
         candidateLines.add(entry.key);
       }
     }
 
-    if (candidateLines.isEmpty) return [];
+    if (candidateLines.length < 10) return []; // 너무 적으면 실패
 
-    // 2단계: 연속된 선들을 그룹화 (격자선은 1-3픽셀 두께)
+    // 2단계: 연속된 픽셀을 하나의 선으로 그룹화
     final groupedLines = <int>[];
     int currentGroupStart = candidateLines[0];
     int currentGroupEnd = candidateLines[0];
 
     for (int i = 1; i < candidateLines.length; i++) {
-      if (candidateLines[i] - currentGroupEnd <= 3) {
+      if (candidateLines[i] - currentGroupEnd <= 2) {
         currentGroupEnd = candidateLines[i];
       } else {
         groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
@@ -938,57 +935,62 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
     groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
 
-    if (groupedLines.length < 3) return groupedLines;
+    if (groupedLines.length < 10) return []; // 최소 10개 격자선 필요
 
-    // 3단계: 등간격 패턴 필터링
+    // 3단계: 간격 히스토그램으로 가장 빈번한 간격 찾기
     final intervals = <int>[];
     for (int i = 1; i < groupedLines.length; i++) {
       intervals.add(groupedLines[i] - groupedLines[i - 1]);
     }
 
-    // 중간값 간격 계산
-    intervals.sort();
-    final medianInterval = intervals[intervals.length ~/ 2];
+    // 간격의 빈도 계산
+    final intervalFrequency = <int, int>{};
+    for (final interval in intervals) {
+      // ±2 픽셀 범위로 그룹화
+      int key = (interval / 3).round() * 3;
+      intervalFrequency[key] = (intervalFrequency[key] ?? 0) + 1;
+    }
 
-    // 4단계: 첫 번째 격자선 찾기 (가장 등간격에 가까운 시작점)
-    int bestStartIdx = 0;
-    int maxMatchCount = 0;
+    // 가장 빈번한 간격 찾기
+    int mostCommonInterval = 0;
+    int maxFrequency = 0;
+    for (final entry in intervalFrequency.entries) {
+      if (entry.value > maxFrequency) {
+        maxFrequency = entry.value;
+        mostCommonInterval = entry.key;
+      }
+    }
 
-    for (int startIdx = 0; startIdx < groupedLines.length && startIdx < 5; startIdx++) {
-      int matchCount = 1;
-      int expectedPos = groupedLines[startIdx] + medianInterval;
+    if (mostCommonInterval == 0) return [];
+
+    // 4단계: 가장 긴 등간격 시퀀스 찾기
+    List<int> longestSequence = [];
+
+    for (int startIdx = 0; startIdx < groupedLines.length; startIdx++) {
+      List<int> currentSequence = [groupedLines[startIdx]];
+      int expectedPos = groupedLines[startIdx] + mostCommonInterval;
 
       for (int i = startIdx + 1; i < groupedLines.length; i++) {
         final actualPos = groupedLines[i];
         final diff = (actualPos - expectedPos).abs();
 
-        if (diff < medianInterval * 0.25) {
-          matchCount++;
-          expectedPos = actualPos + medianInterval;
+        // 매우 엄격한 허용 오차 (±15%)
+        if (diff <= mostCommonInterval * 0.15) {
+          currentSequence.add(actualPos);
+          expectedPos = actualPos + mostCommonInterval;
+        } else if (actualPos > expectedPos + mostCommonInterval) {
+          // 간격이 너무 크면 다음 시작점으로
+          break;
         }
       }
 
-      if (matchCount > maxMatchCount) {
-        maxMatchCount = matchCount;
-        bestStartIdx = startIdx;
+      if (currentSequence.length > longestSequence.length) {
+        longestSequence = currentSequence;
       }
     }
 
-    // 5단계: 등간격 선들만 선택
-    final filteredLines = <int>[groupedLines[bestStartIdx]];
-    int expectedPos = groupedLines[bestStartIdx] + medianInterval;
-
-    for (int i = bestStartIdx + 1; i < groupedLines.length; i++) {
-      final actualPos = groupedLines[i];
-      final diff = (actualPos - expectedPos).abs();
-
-      if (diff < medianInterval * 0.25) {
-        filteredLines.add(actualPos);
-        expectedPos = actualPos + medianInterval;
-      }
-    }
-
-    return filteredLines.length >= 2 ? filteredLines : groupedLines;
+    // 최소 10개 이상의 등간격 선이 있어야 유효한 격자
+    return longestSequence.length >= 10 ? longestSequence : [];
   }
 
   // 격자 크기 조정 다이얼로그
