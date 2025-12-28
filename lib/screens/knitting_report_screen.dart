@@ -20,7 +20,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   int _currentNavIndex = 0;
   final Map<int, ScrollController> _scrollControllers = {};
   late final PageController _pageController;
-  final GlobalKey<State<YoutubeListScreen>> _youtubeScreenKey = GlobalKey();
+  final GlobalKey<YoutubeListScreenState> _youtubeScreenKey = GlobalKey();
 
   // Liquid Glass 색상 정의
   static const Color _glassBackground = Color(0xFFF1F0EF);

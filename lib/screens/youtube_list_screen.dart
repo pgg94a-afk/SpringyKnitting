@@ -9,10 +9,10 @@ class YoutubeListScreen extends StatefulWidget {
   const YoutubeListScreen({super.key, this.embedded = false});
 
   @override
-  State<YoutubeListScreen> createState() => _YoutubeListScreenState();
+  State<YoutubeListScreen> createState() => YoutubeListScreenState();
 }
 
-class _YoutubeListScreenState extends State<YoutubeListScreen>
+class YoutubeListScreenState extends State<YoutubeListScreen>
     with AutomaticKeepAliveClientMixin {
   final List<YoutubeVideo> _videos = [];
   YoutubeVideo? _currentVideo;
