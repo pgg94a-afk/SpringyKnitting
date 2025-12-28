@@ -48,6 +48,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
   // 트레이스 탭 관련 변수
   File? _traceImage;
+  img.Image? _croppedImage; // 크롭된 격자 영역 이미지
   int _gridRows = 10;
   int _gridCols = 10;
   double _imageOpacity = 0.5;
@@ -509,6 +510,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                     onPressed: () {
                       setState(() {
                         _traceImage = null;
+                        _croppedImage = null;
                         _currentTraceRow = 0;
                         _currentTraceCol = 0;
                         _initializeTraceGrid();
@@ -569,7 +571,17 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       child: Stack(
         children: [
           // 배경 이미지 (투명도 적용)
-          if (_traceImage != null)
+          if (_croppedImage != null)
+            Positioned.fill(
+              child: Opacity(
+                opacity: _imageOpacity,
+                child: Image.memory(
+                  img.encodeJpg(_croppedImage!),
+                  fit: BoxFit.fill,
+                ),
+              ),
+            )
+          else if (_traceImage != null)
             Positioned.fill(
               child: Opacity(
                 opacity: _imageOpacity,
@@ -814,13 +826,37 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       int detectedRows = horizontalLines.length > 1 ? horizontalLines.length - 1 : _gridRows;
       int detectedCols = verticalLines.length > 1 ? verticalLines.length - 1 : _gridCols;
 
+      // 격자 영역만 크롭
+      img.Image? croppedImage;
+      if (horizontalLines.isNotEmpty && verticalLines.isNotEmpty) {
+        final top = horizontalLines.first;
+        final bottom = horizontalLines.last;
+        final left = verticalLines.first;
+        final right = verticalLines.last;
+
+        // 크롭 (약간의 여백 추가)
+        final cropTop = (top - 2).clamp(0, image.height);
+        final cropBottom = (bottom + 2).clamp(0, image.height);
+        final cropLeft = (left - 2).clamp(0, image.width);
+        final cropRight = (right + 2).clamp(0, image.width);
+
+        croppedImage = img.copyCrop(
+          image,
+          x: cropLeft,
+          y: cropTop,
+          width: cropRight - cropLeft,
+          height: cropBottom - cropTop,
+        );
+      }
+
       // UI 업데이트
       if (mounted) {
         Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
 
         setState(() {
-          _gridRows = detectedRows.clamp(1, 50);
-          _gridCols = detectedCols.clamp(1, 50);
+          _gridRows = detectedRows.clamp(1, 200);
+          _gridCols = detectedCols.clamp(1, 200);
+          _croppedImage = croppedImage;
           _initializeTraceGrid();
         });
 
