@@ -484,9 +484,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
           ],
         ),
       ),
-        ),
-      ),
-    );
+    ),
+  );
   }
 
   Widget _buildGridCanvas() {
