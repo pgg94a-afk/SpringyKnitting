@@ -24,9 +24,12 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   final GlobalKey<YoutubeListScreenState> _youtubeScreenKey = GlobalKey();
   final GlobalKey _youtubePlayerKey = GlobalKey(); // YoutubePlayer 위젯 인스턴스 유지용
 
-  // Floating player 위치 관리
+  // Floating player 위치 및 크기 관리
   double _floatingPlayerX = 16; // 오른쪽 여백
   double _floatingPlayerY = 100; // 바텀 네비게이션 바 위
+  double _floatingPlayerScale = 1.0; // 크기 배율 (1.0 ~ 1.5)
+  double _baseFloatingPlayerWidth = 200.0; // 기본 크기
+  double _scaleStart = 1.0; // 스케일 시작 시 저장
 
   // Liquid Glass 색상 정의
   static const Color _glassBackground = Color(0xFFF1F0EF);
@@ -350,6 +353,9 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
   // Floating player UI
   Widget _buildFloatingPlayer(YoutubeVideo video, YoutubePlayerController controller) {
+    final currentWidth = _baseFloatingPlayerWidth * _floatingPlayerScale;
+    final currentHeight = currentWidth * 9 / 16 + 40; // 16:9 비율 + 타이틀바
+
     return Positioned(
       right: _floatingPlayerX,
       bottom: _floatingPlayerY,
@@ -369,9 +375,19 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             // Y축은 bottom 기준이므로 반대로
             _floatingPlayerY -= details.delta.dy;
 
-            // 화면 밖으로 나가지 않도록 제한
-            _floatingPlayerX = _floatingPlayerX.clamp(0.0, MediaQuery.of(context).size.width - 176); // 160 + 16
-            _floatingPlayerY = _floatingPlayerY.clamp(0.0, MediaQuery.of(context).size.height - 200);
+            // 화면 밖으로 나가지 않도록 제한 (동적 크기 반영)
+            _floatingPlayerX = _floatingPlayerX.clamp(0.0, MediaQuery.of(context).size.width - currentWidth - 16);
+            _floatingPlayerY = _floatingPlayerY.clamp(0.0, MediaQuery.of(context).size.height - currentHeight - 16);
+          });
+        },
+        onScaleStart: (details) {
+          // 스케일 시작 시 현재 스케일 저장
+          _scaleStart = _floatingPlayerScale;
+        },
+        onScaleUpdate: (details) {
+          // 핀치 줌으로 크기 조절 (1.0 ~ 1.5배)
+          setState(() {
+            _floatingPlayerScale = (_scaleStart * details.scale).clamp(1.0, 1.5);
           });
         },
         child: ClipRRect(
@@ -379,7 +395,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
-              width: 160,
+              width: currentWidth,
               decoration: BoxDecoration(
                 color: Colors.black,
                 borderRadius: BorderRadius.circular(12),
