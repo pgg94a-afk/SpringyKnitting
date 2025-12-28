@@ -201,7 +201,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   Widget _buildVideoTab() {
-    return const YoutubeListScreen(embedded: true);
+    return YoutubeListScreen(embedded: true);
   }
 
   Widget _buildPatternTab() {
