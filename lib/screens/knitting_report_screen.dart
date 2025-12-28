@@ -1,9 +1,6 @@
 import 'dart:ui';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image/image.dart' as img;
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
 import '../models/youtube_video.dart';
@@ -47,21 +44,25 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   ];
 
   // 트레이스 탭 관련 변수
-  File? _traceImage;
-  img.Image? _croppedImage; // 크롭된 격자 영역 이미지
   int _gridRows = 10;
   int _gridCols = 10;
-  double _imageOpacity = 0.5;
   List<List<Stitch?>> _traceGrid = [];
   int _currentTraceRow = 0;
   int _currentTraceCol = 0;
-  final ImagePicker _picker = ImagePicker();
 
-  // 이미지 조정 관련 변수
+  // X영역 (제외된 셀) 관리
+  final Set<String> _excludedCells = {}; // "row,col" 형식으로 저장
+
+  // 드래그 선택용 변수
+  int? _dragStartRow;
+  int? _dragStartCol;
+  int? _dragEndRow;
+  int? _dragEndCol;
+  bool _isSelectingExcluded = false;
+
+  // 격자 보기 관련
   final TransformationController _transformationController = TransformationController();
-  double _imageScale = 1.0;
-  Offset _imageOffset = Offset.zero;
-  bool _isAdjustMode = false;
+  bool _isGridConfigured = false; // 격자 설정 완료 여부
 
   @override
   void initState() {
@@ -275,13 +276,13 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   Widget _buildTraceTab() {
-    if (_traceImage == null) {
-      return _buildTraceSetup();
+    if (!_isGridConfigured) {
+      return _buildGridSetup();
     }
-    return _buildTraceCanvas();
+    return _buildGridCanvas();
   }
 
-  Widget _buildTraceSetup() {
+  Widget _buildGridSetup() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -304,7 +305,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '기호도 이미지를 업로드하여\n따라 그리기를 시작하세요',
+              '격자 크기를 설정하고\n따라 그리기를 시작하세요',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -343,26 +344,40 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                             onPressed: _gridRows > 1 ? () {
                               setState(() {
                                 _gridRows--;
-                                _initializeTraceGrid();
                               });
                             } : null,
                           ),
-                          Text(
-                            '$_gridRows',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                          SizedBox(
+                            width: 60,
+                            child: TextField(
+                              controller: TextEditingController(text: '$_gridRows'),
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onChanged: (value) {
+                                final rows = int.tryParse(value);
+                                if (rows != null && rows > 0 && rows <= 200) {
+                                  setState(() {
+                                    _gridRows = rows;
+                                  });
+                                }
+                              },
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () {
+                            onPressed: _gridRows < 200 ? () {
                               setState(() {
                                 _gridRows++;
-                                _initializeTraceGrid();
                               });
-                            },
+                            } : null,
                           ),
                         ],
                       ),
@@ -387,40 +402,62 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                             onPressed: _gridCols > 1 ? () {
                               setState(() {
                                 _gridCols--;
-                                _initializeTraceGrid();
                               });
                             } : null,
                           ),
-                          Text(
-                            '$_gridCols',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                          SizedBox(
+                            width: 60,
+                            child: TextField(
+                              controller: TextEditingController(text: '$_gridCols'),
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onChanged: (value) {
+                                final cols = int.tryParse(value);
+                                if (cols != null && cols > 0 && cols <= 200) {
+                                  setState(() {
+                                    _gridCols = cols;
+                                  });
+                                }
+                              },
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () {
+                            onPressed: _gridCols < 200 ? () {
                               setState(() {
                                 _gridCols++;
-                                _initializeTraceGrid();
                               });
-                            },
+                            } : null,
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            // 이미지 업로드 버튼
+            // 시작 버튼
             ElevatedButton.icon(
-              onPressed: _pickImage,
-              icon: const Icon(Icons.add_photo_alternate),
-              label: const Text('기호도 이미지 업로드'),
+              onPressed: () {
+                setState(() {
+                  _isGridConfigured = true;
+                  _initializeTraceGrid();
+                  // 시작 위치: 가장 우측, 가장 하단 (0,0)
+                  _currentTraceRow = 0;
+                  _currentTraceCol = _gridCols - 1;
+                });
+              },
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('시작하기'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _selectedAccent,
                 foregroundColor: Colors.white,
@@ -439,12 +476,12 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     );
   }
 
-  Widget _buildTraceCanvas() {
+  Widget _buildGridCanvas() {
     return Column(
       children: [
         // 상단 컨트롤
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.7),
             border: Border(
@@ -454,259 +491,242 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               ),
             ),
           ),
-          child: Column(
+          child: Row(
             children: [
-              Row(
-                children: [
-                  const Text(
-                    '이미지 투명도',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  Expanded(
-                    child: Slider(
-                      value: _imageOpacity,
-                      min: 0.0,
-                      max: 1.0,
-                      divisions: 10,
-                      label: '${(_imageOpacity * 100).round()}%',
-                      onChanged: (value) {
-                        setState(() {
-                          _imageOpacity = value;
-                        });
-                      },
-                    ),
-                  ),
-                  // 이미지 조정 모드 토글
-                  IconButton(
-                    icon: Icon(
-                      _isAdjustMode ? Icons.lock_open : Icons.lock,
-                      color: _isAdjustMode ? _selectedAccent : Colors.black54,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isAdjustMode = !_isAdjustMode;
-                      });
-                    },
-                    tooltip: _isAdjustMode ? '조정 모드 (드래그/줌 가능)' : '고정 모드',
-                  ),
-                  // 격자 자동 감지 버튼
-                  IconButton(
-                    icon: const Icon(Icons.auto_fix_high),
-                    onPressed: _detectGridFromImage,
-                    tooltip: '격자 자동 감지',
-                  ),
-                  // 격자 크기 조정 버튼
-                  IconButton(
-                    icon: const Icon(Icons.grid_4x4),
-                    onPressed: _showGridSizeDialog,
-                    tooltip: '격자 크기 수동 조정',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      setState(() {
-                        _traceImage = null;
-                        _croppedImage = null;
-                        _currentTraceRow = 0;
-                        _currentTraceCol = 0;
-                        _initializeTraceGrid();
-                        _transformationController.value = Matrix4.identity();
-                      });
-                    },
-                  ),
-                ],
+              Text(
+                '현재: ${_currentTraceRow + 1}행 ${_currentTraceCol + 1}열',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
               ),
-              if (_isAdjustMode)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    '드래그로 이동, 핀치로 확대/축소',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.black54,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
+              const Spacer(),
+              // X영역 선택 모드 토글
+              IconButton(
+                icon: Icon(
+                  _isSelectingExcluded ? Icons.close : Icons.block,
+                  color: _isSelectingExcluded ? Colors.red : Colors.black54,
                 ),
-              if (!_isAdjustMode)
-                Text(
-                  '현재 위치: ${_currentTraceRow + 1}행 ${_currentTraceCol + 1}열',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.black54,
-                  ),
-                ),
+                onPressed: () {
+                  setState(() {
+                    _isSelectingExcluded = !_isSelectingExcluded;
+                  });
+                },
+                tooltip: _isSelectingExcluded ? 'X영역 선택 모드 종료' : 'X영역 선택',
+              ),
+              // 초기화 버튼
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  setState(() {
+                    _isGridConfigured = false;
+                    _excludedCells.clear();
+                    _currentTraceRow = 0;
+                    _currentTraceCol = 0;
+                    _transformationController.value = Matrix4.identity();
+                  });
+                },
+                tooltip: '처음부터 다시 시작',
+              ),
             ],
           ),
         ),
         // Grid Canvas
         Expanded(
-          child: _buildGridWithImage(),
+          child: _buildInteractiveGrid(),
+        ),
+        // 키패드
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withOpacity(0.9),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // 뒤로 버튼
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _moveToPreviousTraceCell,
+                tooltip: '이전 셀',
+              ),
+              // 버튼들
+              ..._padButtons.map((button) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ElevatedButton(
+                  onPressed: () => _addTraceStitch(button),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: button.color,
+                    foregroundColor: _getContrastColor(button.color),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    button.abbreviation,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              )),
+              // 삭제 버튼
+              IconButton(
+                icon: const Icon(Icons.backspace),
+                onPressed: _removeTraceStitch,
+                tooltip: '삭제',
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildGridWithImage() {
-    // 화면 크기 가져오기
+  Widget _buildInteractiveGrid() {
+    // 화면 크기에 맞춰 셀 크기 계산
     final screenSize = MediaQuery.of(context).size;
-    final availableWidth = screenSize.width - 32; // 좌우 여백
-    final availableHeight = screenSize.height - 300; // 상단 컨트롤 + 하단 키패드 공간
+    final availableWidth = screenSize.width - 32;
+    final availableHeight = screenSize.height - 250; // 상단 컨트롤 + 하단 키패드 공간
 
-    // 격자 크기를 화면에 맞춰 동적으로 계산
     final cellSizeByWidth = availableWidth / _gridCols;
     final cellSizeByHeight = availableHeight / _gridRows;
-    final cellSize = (cellSizeByWidth < cellSizeByHeight ? cellSizeByWidth : cellSizeByHeight).clamp(10.0, 60.0);
+    final baseCellSize = (cellSizeByWidth < cellSizeByHeight ? cellSizeByWidth : cellSizeByHeight).clamp(8.0, 50.0);
 
-    final gridWidth = _gridCols * cellSize;
-    final gridHeight = _gridRows * cellSize;
+    final gridWidth = _gridCols * baseCellSize;
+    final gridHeight = _gridRows * baseCellSize;
 
-    final gridContent = SizedBox(
-      width: gridWidth,
-      height: gridHeight,
-      child: Stack(
-        children: [
-          // 배경 이미지 (투명도 적용)
-          if (_croppedImage != null)
-            Positioned.fill(
-              child: Opacity(
-                opacity: _imageOpacity,
-                child: Image.memory(
-                  img.encodeJpg(_croppedImage!),
-                  fit: BoxFit.fill,
-                ),
-              ),
-            )
-          else if (_traceImage != null)
-            Positioned.fill(
-              child: Opacity(
-                opacity: _imageOpacity,
-                child: Image.file(
-                  _traceImage!,
-                  fit: BoxFit.fill,
-                ),
-              ),
-            ),
-          // Grid
-          CustomPaint(
-            size: Size(gridWidth, gridHeight),
-            painter: _GridPainter(
-              rows: _gridRows,
-              cols: _gridCols,
-              cellSize: cellSize,
-            ),
-          ),
-          // 스티치 표시
-          if (!_isAdjustMode) ..._buildStitchCells(cellSize),
-        ],
-      ),
-    );
-
-    // 조정 모드일 때는 InteractiveViewer 사용
-    if (_isAdjustMode) {
-      return InteractiveViewer(
+    return GestureDetector(
+      onPanStart: _isSelectingExcluded ? (details) {
+        _handleGridPanStart(details, baseCellSize, gridWidth, gridHeight);
+      } : null,
+      onPanUpdate: _isSelectingExcluded ? (details) {
+        _handleGridPanUpdate(details, baseCellSize, gridWidth, gridHeight);
+      } : null,
+      onPanEnd: _isSelectingExcluded ? (_) {
+        _handleGridPanEnd();
+      } : null,
+      child: InteractiveViewer(
         transformationController: _transformationController,
         minScale: 0.5,
         maxScale: 4.0,
-        boundaryMargin: const EdgeInsets.all(double.infinity),
-        child: Center(child: gridContent),
-      );
-    }
-
-    // 일반 모드일 때는 스크롤 가능
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Center(child: gridContent),
+        boundaryMargin: const EdgeInsets.all(100),
+        panEnabled: !_isSelectingExcluded,
+        scaleEnabled: !_isSelectingExcluded,
+        child: Center(
+          child: CustomPaint(
+            size: Size(gridWidth, gridHeight),
+            painter: _TraceGridPainter(
+              rows: _gridRows,
+              cols: _gridCols,
+              cellSize: baseCellSize,
+              traceGrid: _traceGrid,
+              currentRow: _currentTraceRow,
+              currentCol: _currentTraceCol,
+              excludedCells: _excludedCells,
+              dragStartRow: _dragStartRow,
+              dragStartCol: _dragStartCol,
+              dragEndRow: _dragEndRow,
+              dragEndCol: _dragEndCol,
+              isSelectingExcluded: _isSelectingExcluded,
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  List<Widget> _buildStitchCells(double cellSize) {
-    final List<Widget> cells = [];
+  void _handleGridPanStart(DragStartDetails details, double cellSize, double gridWidth, double gridHeight) {
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
 
-    for (int row = 0; row < _gridRows; row++) {
-      for (int col = 0; col < _gridCols; col++) {
-        final stitch = _traceGrid[row][col];
-        if (stitch != null) {
-          // Grid는 위에서 아래로, 왼쪽에서 오른쪽
-          // 하지만 뜨개질은 아래에서 위로
-          final displayRow = _gridRows - 1 - row;
+    final localPos = box.globalToLocal(details.globalPosition);
+    final centerX = box.size.width / 2;
+    final centerY = box.size.height / 2;
 
-          cells.add(
-            Positioned(
-              left: col * cellSize,
-              top: displayRow * cellSize,
-              child: Container(
-                width: cellSize,
-                height: cellSize,
-                margin: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: stitch.color.withOpacity(0.8),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.6),
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    stitch.abbreviation,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: _getContrastColor(stitch.color),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
+    final gridX = localPos.dx - centerX + gridWidth / 2;
+    final gridY = localPos.dy - centerY + gridHeight / 2;
 
-        // 현재 셀 하이라이트
-        if (row == _currentTraceRow && col == _currentTraceCol) {
-          final displayRow = _gridRows - 1 - row;
-          cells.add(
-            Positioned(
-              left: col * cellSize,
-              top: displayRow * cellSize,
-              child: Container(
-                width: cellSize,
-                height: cellSize,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: _selectedAccent,
-                    width: 3,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-          );
-        }
-      }
-    }
-
-    return cells;
-  }
-
-  void _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
+    if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       setState(() {
-        _traceImage = File(image.path);
+        _dragStartCol = (gridX / cellSize).floor().clamp(0, _gridCols - 1);
+        _dragStartRow = (_gridRows - 1 - (gridY / cellSize).floor()).clamp(0, _gridRows - 1);
+        _dragEndCol = _dragStartCol;
+        _dragEndRow = _dragStartRow;
       });
     }
   }
 
+  void _handleGridPanUpdate(DragUpdateDetails details, double cellSize, double gridWidth, double gridHeight) {
+    if (_dragStartRow == null || _dragStartCol == null) return;
+
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final localPos = box.globalToLocal(details.globalPosition);
+    final centerX = box.size.width / 2;
+    final centerY = box.size.height / 2;
+
+    final gridX = localPos.dx - centerX + gridWidth / 2;
+    final gridY = localPos.dy - centerY + gridHeight / 2;
+
+    if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
+      setState(() {
+        _dragEndCol = (gridX / cellSize).floor().clamp(0, _gridCols - 1);
+        _dragEndRow = (_gridRows - 1 - (gridY / cellSize).floor()).clamp(0, _gridRows - 1);
+      });
+    }
+  }
+
+  void _handleGridPanEnd() {
+    if (_dragStartRow == null || _dragStartCol == null || _dragEndRow == null || _dragEndCol == null) return;
+
+    setState(() {
+      final minRow = _dragStartRow! < _dragEndRow! ? _dragStartRow! : _dragEndRow!;
+      final maxRow = _dragStartRow! > _dragEndRow! ? _dragStartRow! : _dragEndRow!;
+      final minCol = _dragStartCol! < _dragEndCol! ? _dragStartCol! : _dragEndCol!;
+      final maxCol = _dragStartCol! > _dragEndCol! ? _dragStartCol! : _dragEndCol!;
+
+      for (int row = minRow; row <= maxRow; row++) {
+        for (int col = minCol; col <= maxCol; col++) {
+          final key = '$row,$col';
+          if (_excludedCells.contains(key)) {
+            _excludedCells.remove(key);
+          } else {
+            _excludedCells.add(key);
+          }
+        }
+      }
+
+      _dragStartRow = null;
+      _dragStartCol = null;
+      _dragEndRow = null;
+      _dragEndCol = null;
+    });
+  }
+
   void _addTraceStitch(CustomButton button) {
     if (_currentTraceRow >= _gridRows) return;
+
+    // X영역 확인
+    final key = '$_currentTraceRow,$_currentTraceCol';
+    if (_excludedCells.contains(key)) {
+      // X영역이면 자동으로 다음 셀로 이동
+      _moveToNextTraceCell();
+      return;
+    }
 
     setState(() {
       _traceGrid[_currentTraceRow][_currentTraceCol] = Stitch.fromButton(button);
@@ -730,327 +750,69 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     // 홀수 행(0,2,4...): 오른쪽에서 왼쪽
     // 짝수 행(1,3,5...): 왼쪽에서 오른쪽
 
-    if (_currentTraceRow % 2 == 0) {
-      // 홀수번째 줄 (0-based는 짝수): 오른쪽 → 왼쪽
-      if (_currentTraceCol > 0) {
-        _currentTraceCol--;
+    int attempts = 0;
+    do {
+      if (_currentTraceRow % 2 == 0) {
+        // 홀수번째 줄 (0-based는 짝수): 오른쪽 → 왼쪽
+        if (_currentTraceCol > 0) {
+          _currentTraceCol--;
+        } else {
+          // 다음 행으로
+          _currentTraceRow++;
+          if (_currentTraceRow >= _gridRows) break;
+          _currentTraceCol = 0; // 왼쪽부터 시작
+        }
       } else {
-        // 다음 행으로
-        _currentTraceRow++;
-        _currentTraceCol = 0; // 왼쪽부터 시작
+        // 짝수번째 줄 (0-based는 홀수): 왼쪽 → 오른쪽
+        if (_currentTraceCol < _gridCols - 1) {
+          _currentTraceCol++;
+        } else {
+          // 다음 행으로
+          _currentTraceRow++;
+          if (_currentTraceRow >= _gridRows) break;
+          _currentTraceCol = _gridCols - 1; // 오른쪽부터 시작
+        }
       }
-    } else {
-      // 짝수번째 줄 (0-based는 홀수): 왼쪽 → 오른쪽
-      if (_currentTraceCol < _gridCols - 1) {
-        _currentTraceCol++;
-      } else {
-        // 다음 행으로
-        _currentTraceRow++;
-        _currentTraceCol = _gridCols - 1; // 오른쪽부터 시작
-      }
-    }
+
+      final key = '$_currentTraceRow,$_currentTraceCol';
+      if (!_excludedCells.contains(key)) break; // X영역이 아니면 중단
+
+      attempts++;
+    } while (attempts < _gridRows * _gridCols); // 무한 루프 방지
   }
 
   void _moveToPreviousTraceCell() {
-    if (_currentTraceRow % 2 == 0) {
-      // 홀수번째 줄: 왼쪽 → 오른쪽 (역방향)
-      if (_currentTraceCol < _gridCols - 1) {
-        _currentTraceCol++;
-      } else if (_currentTraceRow > 0) {
-        _currentTraceRow--;
-        _currentTraceCol = 0;
-      }
-    } else {
-      // 짝수번째 줄: 오른쪽 → 왼쪽 (역방향)
-      if (_currentTraceCol > 0) {
-        _currentTraceCol--;
-      } else if (_currentTraceRow > 0) {
-        _currentTraceRow--;
-        _currentTraceCol = _gridCols - 1;
-      }
-    }
-  }
-
-  // 픽셀 기반 격자 자동 감지
-  Future<void> _detectGridFromImage() async {
-    if (_traceImage == null) return;
-
-    try {
-      // 로딩 다이얼로그 표시
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
-
-      // 이미지 로드
-      final bytes = await _traceImage!.readAsBytes();
-      final image = img.decodeImage(bytes);
-
-      if (image == null) throw Exception('이미지를 읽을 수 없습니다');
-
-      // 가로선 감지: 각 행에서 어두운 픽셀의 개수 카운트
-      final horizontalDarkPixelCount = <int, int>{};
-      final globalBrightnessList = <double>[];
-
-      // 전역 밝기 임계값 계산을 위해 샘플링
-      for (int y = 0; y < image.height; y += 5) {
-        for (int x = 0; x < image.width; x += 5) {
-          final pixel = image.getPixel(x, y);
-          final brightness = (pixel.r + pixel.g + pixel.b) / 3;
-          globalBrightnessList.add(brightness);
+    int attempts = 0;
+    do {
+      if (_currentTraceRow % 2 == 0) {
+        // 홀수번째 줄: 왼쪽 → 오른쪽 (역방향)
+        if (_currentTraceCol < _gridCols - 1) {
+          _currentTraceCol++;
+        } else if (_currentTraceRow > 0) {
+          _currentTraceRow--;
+          _currentTraceCol = 0;
+        } else {
+          break;
         }
-      }
-      globalBrightnessList.sort();
-      final darkThreshold = globalBrightnessList[(globalBrightnessList.length * 0.3).toInt()];
-
-      // 각 행에서 어두운 픽셀 개수 세기
-      for (int y = 0; y < image.height; y++) {
-        int darkCount = 0;
-        for (int x = 0; x < image.width; x++) {
-          final pixel = image.getPixel(x, y);
-          final brightness = (pixel.r + pixel.g + pixel.b) / 3;
-          if (brightness < darkThreshold) {
-            darkCount++;
-          }
-        }
-        horizontalDarkPixelCount[y] = darkCount;
-      }
-
-      // 각 열에서 어두운 픽셀 개수 세기
-      final verticalDarkPixelCount = <int, int>{};
-      for (int x = 0; x < image.width; x++) {
-        int darkCount = 0;
-        for (int y = 0; y < image.height; y++) {
-          final pixel = image.getPixel(x, y);
-          final brightness = (pixel.r + pixel.g + pixel.b) / 3;
-          if (brightness < darkThreshold) {
-            darkCount++;
-          }
-        }
-        verticalDarkPixelCount[x] = darkCount;
-      }
-
-      // 격자선 찾기 (어두운 픽셀이 많은 행/열)
-      final horizontalLines = _findGridLines(horizontalDarkPixelCount, image.width);
-      final verticalLines = _findGridLines(verticalDarkPixelCount, image.height);
-
-      // 격자 개수 계산
-      int detectedRows = horizontalLines.length > 1 ? horizontalLines.length - 1 : _gridRows;
-      int detectedCols = verticalLines.length > 1 ? verticalLines.length - 1 : _gridCols;
-
-      // 격자 영역만 크롭
-      img.Image? croppedImage;
-      if (horizontalLines.isNotEmpty && verticalLines.isNotEmpty) {
-        final top = horizontalLines.first;
-        final bottom = horizontalLines.last;
-        final left = verticalLines.first;
-        final right = verticalLines.last;
-
-        // 크롭 (약간의 여백 추가)
-        final cropTop = (top - 2).clamp(0, image.height);
-        final cropBottom = (bottom + 2).clamp(0, image.height);
-        final cropLeft = (left - 2).clamp(0, image.width);
-        final cropRight = (right + 2).clamp(0, image.width);
-
-        croppedImage = img.copyCrop(
-          image,
-          x: cropLeft,
-          y: cropTop,
-          width: cropRight - cropLeft,
-          height: cropBottom - cropTop,
-        );
-      }
-
-      // UI 업데이트
-      if (mounted) {
-        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
-
-        setState(() {
-          _gridRows = detectedRows.clamp(1, 200);
-          _gridCols = detectedCols.clamp(1, 200);
-          _croppedImage = croppedImage;
-          _initializeTraceGrid();
-        });
-
-        // 결과 표시
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('격자 검출 완료: ${_gridRows}행 × ${_gridCols}열'),
-            duration: const Duration(seconds: 2),
-            backgroundColor: _selectedAccent,
-          ),
-        );
-      }
-    } catch (e) {
-      // 오류 처리
-      if (mounted) {
-        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('격자 검출 실패: 수동으로 조정해주세요'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
-
-  // 어두운 픽셀 개수로 격자선 찾기 (개선된 알고리즘)
-  List<int> _findGridLines(Map<int, int> darkPixelCount, int totalLength) {
-    if (darkPixelCount.isEmpty) return [];
-
-    // 1단계: 격자선 후보 추출 (적당히 관통하는 선)
-    // 격자선은 이미지를 관통하므로 최소 55% 이상의 픽셀이 어두워야 함
-    final minDarkPixels = (totalLength * 0.55).toInt();
-
-    final candidateLines = <int>[];
-    for (final entry in darkPixelCount.entries) {
-      if (entry.value >= minDarkPixels) {
-        candidateLines.add(entry.key);
-      }
-    }
-
-    if (candidateLines.length < 10) return [];
-
-    // 2단계: 연속된 픽셀을 하나의 선으로 그룹화
-    final groupedLines = <int>[];
-    int currentGroupStart = candidateLines[0];
-    int currentGroupEnd = candidateLines[0];
-
-    for (int i = 1; i < candidateLines.length; i++) {
-      if (candidateLines[i] - currentGroupEnd <= 3) {
-        currentGroupEnd = candidateLines[i];
       } else {
-        groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
-        currentGroupStart = candidateLines[i];
-        currentGroupEnd = candidateLines[i];
-      }
-    }
-    groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
-
-    if (groupedLines.length < 10) return [];
-
-    // 3단계: 중간값 간격 계산 (가장 안정적인 방법)
-    final intervals = <int>[];
-    for (int i = 1; i < groupedLines.length; i++) {
-      intervals.add(groupedLines[i] - groupedLines[i - 1]);
-    }
-
-    intervals.sort();
-    final medianInterval = intervals[intervals.length ~/ 2];
-
-    if (medianInterval < 5) return []; // 너무 작은 간격은 무시
-
-    // 4단계: 등간격 시퀀스 구성 (누락된 선 허용)
-    List<int> longestSequence = [];
-
-    for (int startIdx = 0; startIdx < groupedLines.length && startIdx < 3; startIdx++) {
-      List<int> currentSequence = [groupedLines[startIdx]];
-      int expectedPos = groupedLines[startIdx] + medianInterval;
-      int skipCount = 0; // 누락된 선 카운트
-
-      for (int i = startIdx + 1; i < groupedLines.length; i++) {
-        final actualPos = groupedLines[i];
-        final diff = (actualPos - expectedPos).abs();
-
-        // 허용 오차 20%
-        if (diff <= medianInterval * 0.2) {
-          currentSequence.add(actualPos);
-          expectedPos = actualPos + medianInterval;
-          skipCount = 0; // 성공하면 리셋
-        } else if (actualPos > expectedPos && actualPos < expectedPos + medianInterval * 0.5) {
-          // 간격이 약간 맞지 않지만 계속 진행 (다음 위치 재조정)
-          expectedPos += medianInterval;
-          skipCount++;
-          if (skipCount > 3) break; // 3번 연속 실패하면 중단
-        } else if (actualPos > expectedPos + medianInterval * 0.5) {
-          // 누락된 선이 있을 수 있음 - 건너뛰고 계속
-          expectedPos += medianInterval;
-          skipCount++;
-          i--; // 다시 같은 위치 체크
-          if (skipCount > 5) break; // 5번 이상 누락되면 중단
+        // 짝수번째 줄: 오른쪽 → 왼쪽 (역방향)
+        if (_currentTraceCol > 0) {
+          _currentTraceCol--;
+        } else if (_currentTraceRow > 0) {
+          _currentTraceRow--;
+          _currentTraceCol = _gridCols - 1;
+        } else {
+          break;
         }
       }
 
-      if (currentSequence.length > longestSequence.length) {
-        longestSequence = currentSequence;
-      }
-    }
+      final key = '$_currentTraceRow,$_currentTraceCol';
+      if (!_excludedCells.contains(key)) break; // X영역이 아니면 중단
 
-    return longestSequence.length >= 10 ? longestSequence : [];
+      attempts++;
+    } while (attempts < _gridRows * _gridCols); // 무한 루프 방지
   }
 
-  // 격자 크기 조정 다이얼로그
-  void _showGridSizeDialog() {
-    final rowsController = TextEditingController(text: '$_gridRows');
-    final colsController = TextEditingController(text: '$_gridCols');
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          '격자 크기 조정',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 행 입력
-            TextField(
-              controller: rowsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '행 개수',
-                hintText: '예: 48',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.view_headline),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // 열 입력
-            TextField(
-              controller: colsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '열 개수',
-                hintText: '예: 49',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.view_column),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              rowsController.dispose();
-              colsController.dispose();
-              Navigator.of(context).pop();
-            },
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final rows = int.tryParse(rowsController.text) ?? _gridRows;
-              final cols = int.tryParse(colsController.text) ?? _gridCols;
-
-              if (rows > 0 && rows <= 200 && cols > 0 && cols <= 200) {
-                setState(() {
-                  _gridRows = rows;
-                  _gridCols = cols;
-                  _initializeTraceGrid();
-                });
-                rowsController.dispose();
                 colsController.dispose();
                 Navigator.of(context).pop();
               } else {
@@ -1646,43 +1408,173 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 }
 
-class _GridPainter extends CustomPainter {
+class _TraceGridPainter extends CustomPainter {
   final int rows;
   final int cols;
   final double cellSize;
+  final List<List<Stitch?>> traceGrid;
+  final int currentRow;
+  final int currentCol;
+  final Set<String> excludedCells;
+  final int? dragStartRow;
+  final int? dragStartCol;
+  final int? dragEndRow;
+  final int? dragEndCol;
+  final bool isSelectingExcluded;
 
-  _GridPainter({
+  _TraceGridPainter({
     required this.rows,
     required this.cols,
     required this.cellSize,
+    required this.traceGrid,
+    required this.currentRow,
+    required this.currentCol,
+    required this.excludedCells,
+    this.dragStartRow,
+    this.dragStartCol,
+    this.dragEndRow,
+    this.dragEndCol,
+    required this.isSelectingExcluded,
   });
+
+  Color _getContrastColor(Color color) {
+    final luminance = color.computeLuminance();
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withOpacity(0.3)
-      ..strokeWidth = 1.0
+    // 1. 격자선 그리기
+    final gridPaint = Paint()
+      ..color = Colors.black.withOpacity(0.2)
+      ..strokeWidth = 0.5
       ..style = PaintingStyle.stroke;
 
-    // 가로선 그리기
     for (int i = 0; i <= rows; i++) {
       final y = i * cellSize;
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        paint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    // 세로선 그리기
     for (int i = 0; i <= cols; i++) {
       final x = i * cellSize;
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
     }
+
+    // 2. X영역 표시
+    final excludedPaint = Paint()
+      ..color = Colors.red.withOpacity(0.3)
+      ..style = PaintingStyle.fill;
+
+    for (final key in excludedCells) {
+      final parts = key.split(',');
+      final row = int.parse(parts[0]);
+      final col = int.parse(parts[1]);
+      final displayRow = rows - 1 - row;
+
+      canvas.drawRect(
+        Rect.fromLTWH(col * cellSize, displayRow * cellSize, cellSize, cellSize),
+        excludedPaint,
+      );
+
+      // X 표시
+      final xPaint = Paint()
+        ..color = Colors.red
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke;
+
+      final left = col * cellSize + 4;
+      final top = displayRow * cellSize + 4;
+      final right = (col + 1) * cellSize - 4;
+      final bottom = (displayRow + 1) * cellSize - 4;
+
+      canvas.drawLine(Offset(left, top), Offset(right, bottom), xPaint);
+      canvas.drawLine(Offset(right, top), Offset(left, bottom), xPaint);
+    }
+
+    // 3. 드래그 선택 영역 표시
+    if (isSelectingExcluded && dragStartRow != null && dragStartCol != null &&
+        dragEndRow != null && dragEndCol != null) {
+      final minRow = dragStartRow! < dragEndRow! ? dragStartRow! : dragEndRow!;
+      final maxRow = dragStartRow! > dragEndRow! ? dragStartRow! : dragEndRow!;
+      final minCol = dragStartCol! < dragEndCol! ? dragStartCol! : dragEndCol!;
+      final maxCol = dragStartCol! > dragEndCol! ? dragStartCol! : dragEndCol!;
+
+      final selectionPaint = Paint()
+        ..color = Colors.blue.withOpacity(0.2)
+        ..style = PaintingStyle.fill;
+
+      for (int row = minRow; row <= maxRow; row++) {
+        for (int col = minCol; col <= maxCol; col++) {
+          final displayRow = rows - 1 - row;
+          canvas.drawRect(
+            Rect.fromLTWH(col * cellSize, displayRow * cellSize, cellSize, cellSize),
+            selectionPaint,
+          );
+        }
+      }
+    }
+
+    // 4. 스티치 표시
+    for (int row = 0; row < rows; row++) {
+      for (int col = 0; col < cols; col++) {
+        final stitch = traceGrid[row][col];
+        if (stitch != null) {
+          final displayRow = rows - 1 - row;
+
+          final stitchPaint = Paint()
+            ..color = stitch.color
+            ..style = PaintingStyle.fill;
+
+          canvas.drawRect(
+            Rect.fromLTWH(
+              col * cellSize + 2,
+              displayRow * cellSize + 2,
+              cellSize - 4,
+              cellSize - 4,
+            ),
+            stitchPaint,
+          );
+
+          // 약어 텍스트
+          final textPainter = TextPainter(
+            text: TextSpan(
+              text: stitch.abbreviation,
+              style: TextStyle(
+                color: _getContrastColor(stitch.color),
+                fontSize: (cellSize * 0.3).clamp(8, 14),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          );
+          textPainter.layout();
+          textPainter.paint(
+            canvas,
+            Offset(
+              col * cellSize + (cellSize - textPainter.width) / 2,
+              displayRow * cellSize + (cellSize - textPainter.height) / 2,
+            ),
+          );
+        }
+      }
+    }
+
+    // 5. 현재 셀 하이라이트
+    final displayCurrentRow = rows - 1 - currentRow;
+    final highlightPaint = Paint()
+      ..color = const Color(0xFF6B7280)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawRect(
+      Rect.fromLTWH(
+        currentCol * cellSize + 1.5,
+        displayCurrentRow * cellSize + 1.5,
+        cellSize - 3,
+        cellSize - 3,
+      ),
+      highlightPaint,
+    );
   }
 
   @override
