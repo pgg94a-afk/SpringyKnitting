@@ -885,48 +885,84 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
   }
 
-  // 밝기 데이터에서 어두운 선 찾기
+  // 밝기 데이터에서 어두운 선 찾기 (개선된 알고리즘)
   List<int> _findDarkLines(Map<int, double> brightness) {
     if (brightness.isEmpty) return [];
 
-    // 밝기 값을 리스트로 변환하여 정렬
-    final sortedBrightness = brightness.values.toList()..sort();
+    // 1단계: 밝기 변화율(gradient) 계산
+    final gradients = <int, double>{};
+    final positions = brightness.keys.toList()..sort();
 
-    // 하위 10% 밝기값 찾기 (가장 어두운 10%)
-    final tenPercentIndex = (sortedBrightness.length * 0.1).toInt();
-    final threshold = sortedBrightness[tenPercentIndex];
+    for (int i = 1; i < positions.length - 1; i++) {
+      final prev = brightness[positions[i - 1]]!;
+      final next = brightness[positions[i + 1]]!;
+      // 중앙 차분으로 변화율 계산
+      gradients[positions[i]] = (next - prev).abs() / 2;
+    }
 
-    // 어두운 선 찾기
-    final darkLines = <int>[];
-    for (final entry in brightness.entries) {
-      if (entry.value <= threshold) {
-        darkLines.add(entry.key);
+    if (gradients.isEmpty) return [];
+
+    // 2단계: 변화율이 큰 위치 찾기 (격자선 경계)
+    final sortedGradients = gradients.values.toList()..sort();
+    // 상위 15%의 변화율을 가진 위치 = 격자선 후보
+    final gradientThreshold = sortedGradients[(sortedGradients.length * 0.85).toInt()];
+
+    final edgeLines = <int>[];
+    for (final entry in gradients.entries) {
+      if (entry.value >= gradientThreshold) {
+        edgeLines.add(entry.key);
       }
     }
 
-    if (darkLines.isEmpty) return [];
+    if (edgeLines.isEmpty) return [];
 
-    // 가까운 선들을 그룹화 (연속된 어두운 픽셀은 하나의 선)
+    // 3단계: 연속된 edge를 그룹화
     final groupedLines = <int>[];
-    int currentGroupStart = darkLines[0];
-    int currentGroupEnd = darkLines[0];
+    int currentGroupStart = edgeLines[0];
+    int currentGroupEnd = edgeLines[0];
 
-    for (int i = 1; i < darkLines.length; i++) {
-      if (darkLines[i] - currentGroupEnd <= 1) {
-        // 연속된 픽셀, 그룹에 포함
-        currentGroupEnd = darkLines[i];
+    for (int i = 1; i < edgeLines.length; i++) {
+      if (edgeLines[i] - currentGroupEnd <= 3) {
+        currentGroupEnd = edgeLines[i];
       } else {
-        // 새로운 그룹 시작
-        // 현재 그룹의 중간점을 추가
         groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
-        currentGroupStart = darkLines[i];
-        currentGroupEnd = darkLines[i];
+        currentGroupStart = edgeLines[i];
+        currentGroupEnd = edgeLines[i];
       }
     }
-    // 마지막 그룹 추가
     groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
 
-    return groupedLines;
+    // 4단계: 정기적인 간격을 가진 선만 필터링
+    if (groupedLines.length < 3) return groupedLines;
+
+    // 가장 일반적인 간격 찾기
+    final intervals = <int>[];
+    for (int i = 1; i < groupedLines.length; i++) {
+      intervals.add(groupedLines[i] - groupedLines[i - 1]);
+    }
+
+    // 중간값(median) 간격 계산
+    intervals.sort();
+    final medianInterval = intervals[intervals.length ~/ 2];
+
+    // 중간값 간격에 가까운 선들만 선택 (허용 오차 30%)
+    final filteredLines = <int>[groupedLines[0]];
+    int expectedPos = groupedLines[0] + medianInterval;
+
+    for (int i = 1; i < groupedLines.length; i++) {
+      final actualPos = groupedLines[i];
+      final diff = (actualPos - expectedPos).abs();
+
+      if (diff < medianInterval * 0.3) {
+        filteredLines.add(actualPos);
+        expectedPos = actualPos + medianInterval;
+      } else {
+        // 간격이 맞지 않으면 현재 위치를 기준으로 재설정
+        expectedPos = actualPos + medianInterval;
+      }
+    }
+
+    return filteredLines.length >= 2 ? filteredLines : groupedLines;
   }
 
   // 격자 크기 조정 다이얼로그
