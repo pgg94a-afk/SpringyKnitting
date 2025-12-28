@@ -61,6 +61,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   int? _dragEndCol;
   bool _isSelectingExcluded = false;
 
+  // 한 손가락 범위 지정용
+  int? _firstTapRow;
+  int? _firstTapCol;
+
   // 격자 보기 관련
   final TransformationController _transformationController = TransformationController();
   bool _isGridConfigured = false; // 격자 설정 완료 여부
@@ -284,12 +288,18 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   Widget _buildGridSetup() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
             Icon(
               Icons.grid_on,
               size: 64,
@@ -472,6 +482,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               ),
             ),
           ],
+        ),
+      ),
         ),
       ),
     );
@@ -734,11 +746,40 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       final row = (_gridRows - 1 - (gridY / cellSize).floor()).clamp(0, _gridRows - 1);
 
       setState(() {
-        final key = '$row,$col';
-        if (_excludedCells.contains(key)) {
-          _excludedCells.remove(key);
+        if (_firstTapRow == null || _firstTapCol == null) {
+          // 첫 번째 탭: 시작점 저장하고 미리보기 표시
+          _firstTapRow = row;
+          _firstTapCol = col;
+          _dragStartRow = row;
+          _dragStartCol = col;
+          _dragEndRow = row;
+          _dragEndCol = col;
         } else {
-          _excludedCells.add(key);
+          // 두 번째 탭: 범위 선택 완료
+          final minRow = _firstTapRow! < row ? _firstTapRow! : row;
+          final maxRow = _firstTapRow! > row ? _firstTapRow! : row;
+          final minCol = _firstTapCol! < col ? _firstTapCol! : col;
+          final maxCol = _firstTapCol! > col ? _firstTapCol! : col;
+
+          // 범위 내 모든 셀 토글
+          for (int r = minRow; r <= maxRow; r++) {
+            for (int c = minCol; c <= maxCol; c++) {
+              final key = '$r,$c';
+              if (_excludedCells.contains(key)) {
+                _excludedCells.remove(key);
+              } else {
+                _excludedCells.add(key);
+              }
+            }
+          }
+
+          // 초기화
+          _firstTapRow = null;
+          _firstTapCol = null;
+          _dragStartRow = null;
+          _dragStartCol = null;
+          _dragEndRow = null;
+          _dragEndCol = null;
         }
       });
     }
@@ -1531,17 +1572,75 @@ class _TraceGridPainter extends CustomPainter {
     return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
+  // 지그재그 패턴으로 셀 번호 계산 (우측 하단이 1번)
+  int _getCellNumber(int row, int col) {
+    if (row % 2 == 0) {
+      // 짝수 행 (0, 2, 4...): 오른쪽 → 왼쪽
+      return row * cols + (cols - col);
+    } else {
+      // 홀수 행 (1, 3, 5...): 왼쪽 → 오른쪽
+      return row * cols + col + 1;
+    }
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
+    // 0. 행 번호 표시 (왼쪽에, 5단위로)
+    final numberTextStyle = TextStyle(
+      color: Colors.black.withOpacity(0.6),
+      fontSize: (cellSize * 0.25).clamp(8.0, 12.0),
+      fontWeight: FontWeight.bold,
+    );
+
+    for (int row = 0; row < rows; row++) {
+      // 가장 오른쪽 열에서 셀 번호를 계산
+      final cellNumber = _getCellNumber(row, cols - 1);
+
+      // 1, 6, 11, 16, 21... 형태로 5단위마다 표시
+      if ((cellNumber - 1) % 5 == 0) {
+        final displayRow = rows - 1 - row;
+        final textPainter = TextPainter(
+          text: TextSpan(text: '$cellNumber', style: numberTextStyle),
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(
+            -textPainter.width - 6,
+            displayRow * cellSize + (cellSize - textPainter.height) / 2,
+          ),
+        );
+      }
+    }
+
     // 1. 격자선 그리기
     final gridPaint = Paint()
       ..color = Colors.black.withOpacity(0.2)
       ..strokeWidth = 0.5
       ..style = PaintingStyle.stroke;
 
+    final boldGridPaint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
     for (int i = 0; i <= rows; i++) {
       final y = i * cellSize;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      final row = rows - i;
+
+      // 행 번호가 5의 배수면 굵은 선
+      bool isBoldLine = false;
+      if (row > 0 && row <= rows) {
+        final cellNumber = _getCellNumber(row - 1, cols - 1);
+        isBoldLine = (cellNumber - 1) % 5 == 0;
+      }
+
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        isBoldLine ? boldGridPaint : gridPaint,
+      );
     }
 
     for (int i = 0; i <= cols; i++) {
