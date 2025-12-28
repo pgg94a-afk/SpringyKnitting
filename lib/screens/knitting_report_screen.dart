@@ -1,6 +1,8 @@
 import 'dart:ui';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
 import '../models/youtube_video.dart';
@@ -43,10 +45,28 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     ButtonPresets.purl,
   ];
 
+  // 트레이스 탭 관련 변수
+  File? _traceImage;
+  int _gridRows = 10;
+  int _gridCols = 10;
+  double _imageOpacity = 0.5;
+  List<List<Stitch?>> _traceGrid = [];
+  int _currentTraceRow = 0;
+  int _currentTraceCol = 0;
+  final ImagePicker _picker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentNavIndex);
+    _initializeTraceGrid();
+  }
+
+  void _initializeTraceGrid() {
+    _traceGrid = List.generate(
+      _gridRows,
+      (_) => List.generate(_gridCols, (_) => null),
+    );
   }
 
   ScrollController _getScrollController(int index) {
@@ -179,6 +199,16 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                     onButtonsReordered: _onButtonsReordered,
                     onButtonDeleted: _onButtonDeleted,
                   ),
+                if (_currentNavIndex == 2)
+                  StitchPad(
+                    buttons: _padButtons,
+                    onButtonTap: _addTraceStitch,
+                    onAddRow: () {}, // 트레이스에서는 행 추가 안함
+                    onDelete: _removeTraceStitch,
+                    onEmptySlotTap: _showAddButton,
+                    onButtonsReordered: _onButtonsReordered,
+                    onButtonDeleted: _onButtonDeleted,
+                  ),
                 _buildBottomNavigationBar(),
               ],
             ),
@@ -197,7 +227,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       children: [
         _buildRecordTab(),
         _buildVideoTab(),
-        _buildPatternTab(),
+        _buildTraceTab(),
       ],
     );
   }
@@ -235,35 +265,428 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     );
   }
 
-  Widget _buildPatternTab() {
+  Widget _buildTraceTab() {
+    if (_traceImage == null) {
+      return _buildTraceSetup();
+    }
+    return _buildTraceCanvas();
+  }
+
+  Widget _buildTraceSetup() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.grid_on,
+              size: 64,
+              color: _accentColor.withOpacity(0.4),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              '트레이스 모드',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '기호도 이미지를 업로드하여\n따라 그리기를 시작하세요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 32),
+            // Grid 설정
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _accentColor.withOpacity(0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '행 개수',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline),
+                            onPressed: _gridRows > 1 ? () {
+                              setState(() {
+                                _gridRows--;
+                                _initializeTraceGrid();
+                              });
+                            } : null,
+                          ),
+                          Text(
+                            '$_gridRows',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline),
+                            onPressed: () {
+                              setState(() {
+                                _gridRows++;
+                                _initializeTraceGrid();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '열 개수',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline),
+                            onPressed: _gridCols > 1 ? () {
+                              setState(() {
+                                _gridCols--;
+                                _initializeTraceGrid();
+                              });
+                            } : null,
+                          ),
+                          Text(
+                            '$_gridCols',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline),
+                            onPressed: () {
+                              setState(() {
+                                _gridCols++;
+                                _initializeTraceGrid();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            // 이미지 업로드 버튼
+            ElevatedButton.icon(
+              onPressed: _pickImage,
+              icon: const Icon(Icons.add_photo_alternate),
+              label: const Text('기호도 이미지 업로드'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _selectedAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTraceCanvas() {
+    return Column(
+      children: [
+        // 상단 컨트롤
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.7),
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withOpacity(0.9),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    '이미지 투명도',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: _imageOpacity,
+                      min: 0.0,
+                      max: 1.0,
+                      divisions: 10,
+                      label: '${(_imageOpacity * 100).round()}%',
+                      onChanged: (value) {
+                        setState(() {
+                          _imageOpacity = value;
+                        });
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      setState(() {
+                        _traceImage = null;
+                        _currentTraceRow = 0;
+                        _currentTraceCol = 0;
+                        _initializeTraceGrid();
+                      });
+                    },
+                  ),
+                ],
+              ),
+              Text(
+                '현재 위치: ${_currentTraceRow + 1}행 ${_currentTraceCol + 1}열',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Grid Canvas
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: _buildGridWithImage(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGridWithImage() {
+    final cellSize = 40.0;
+    final gridWidth = _gridCols * cellSize;
+    final gridHeight = _gridRows * cellSize;
+
+    return SizedBox(
+      width: gridWidth,
+      height: gridHeight,
+      child: Stack(
         children: [
-          Icon(
-            Icons.grid_on,
-            size: 64,
-            color: _accentColor.withOpacity(0.4),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '도안 기능 준비 중',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.black54,
+          // 배경 이미지 (투명도 적용)
+          if (_traceImage != null)
+            Positioned.fill(
+              child: Opacity(
+                opacity: _imageOpacity,
+                child: Image.file(
+                  _traceImage!,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          // Grid
+          CustomPaint(
+            size: Size(gridWidth, gridHeight),
+            painter: _GridPainter(
+              rows: _gridRows,
+              cols: _gridCols,
+              cellSize: cellSize,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            '곧 만나요!',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.black38,
-            ),
-          ),
+          // 스티치 표시
+          ..._buildStitchCells(cellSize),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildStitchCells(double cellSize) {
+    final List<Widget> cells = [];
+
+    for (int row = 0; row < _gridRows; row++) {
+      for (int col = 0; col < _gridCols; col++) {
+        final stitch = _traceGrid[row][col];
+        if (stitch != null) {
+          // Grid는 위에서 아래로, 왼쪽에서 오른쪽
+          // 하지만 뜨개질은 아래에서 위로
+          final displayRow = _gridRows - 1 - row;
+
+          cells.add(
+            Positioned(
+              left: col * cellSize,
+              top: displayRow * cellSize,
+              child: Container(
+                width: cellSize,
+                height: cellSize,
+                margin: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: stitch.color.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.6),
+                    width: 1,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    stitch.abbreviation,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: _getContrastColor(stitch.color),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        // 현재 셀 하이라이트
+        if (row == _currentTraceRow && col == _currentTraceCol) {
+          final displayRow = _gridRows - 1 - row;
+          cells.add(
+            Positioned(
+              left: col * cellSize,
+              top: displayRow * cellSize,
+              child: Container(
+                width: cellSize,
+                height: cellSize,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: _selectedAccent,
+                    width: 3,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    return cells;
+  }
+
+  void _pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _traceImage = File(image.path);
+      });
+    }
+  }
+
+  void _addTraceStitch(CustomButton button) {
+    if (_currentTraceRow >= _gridRows) return;
+
+    setState(() {
+      _traceGrid[_currentTraceRow][_currentTraceCol] = Stitch.fromButton(button);
+      _moveToNextTraceCell();
+    });
+  }
+
+  void _removeTraceStitch() {
+    setState(() {
+      if (_traceGrid[_currentTraceRow][_currentTraceCol] != null) {
+        _traceGrid[_currentTraceRow][_currentTraceCol] = null;
+      } else {
+        _moveToPreviousTraceCell();
+        _traceGrid[_currentTraceRow][_currentTraceCol] = null;
+      }
+    });
+  }
+
+  void _moveToNextTraceCell() {
+    // 지그재그 패턴: 우측하단(0,0)에서 시작
+    // 홀수 행(0,2,4...): 오른쪽에서 왼쪽
+    // 짝수 행(1,3,5...): 왼쪽에서 오른쪽
+
+    if (_currentTraceRow % 2 == 0) {
+      // 홀수번째 줄 (0-based는 짝수): 오른쪽 → 왼쪽
+      if (_currentTraceCol > 0) {
+        _currentTraceCol--;
+      } else {
+        // 다음 행으로
+        _currentTraceRow++;
+        _currentTraceCol = 0; // 왼쪽부터 시작
+      }
+    } else {
+      // 짝수번째 줄 (0-based는 홀수): 왼쪽 → 오른쪽
+      if (_currentTraceCol < _gridCols - 1) {
+        _currentTraceCol++;
+      } else {
+        // 다음 행으로
+        _currentTraceRow++;
+        _currentTraceCol = _gridCols - 1; // 오른쪽부터 시작
+      }
+    }
+  }
+
+  void _moveToPreviousTraceCell() {
+    if (_currentTraceRow % 2 == 0) {
+      // 홀수번째 줄: 왼쪽 → 오른쪽 (역방향)
+      if (_currentTraceCol < _gridCols - 1) {
+        _currentTraceCol++;
+      } else if (_currentTraceRow > 0) {
+        _currentTraceRow--;
+        _currentTraceCol = 0;
+      }
+    } else {
+      // 짝수번째 줄: 오른쪽 → 왼쪽 (역방향)
+      if (_currentTraceCol > 0) {
+        _currentTraceCol--;
+      } else if (_currentTraceRow > 0) {
+        _currentTraceRow--;
+        _currentTraceCol = _gridCols - 1;
+      }
+    }
   }
 
   // Video Player 표시 여부 확인
@@ -474,7 +897,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     const navItems = [
       (Icons.edit_note, '기록'),
       (Icons.play_circle_outline, '영상'),
-      (Icons.grid_on, '도안'),
+      (Icons.grid_on, '트레이스'),
     ];
 
     return ClipRRect(
@@ -836,5 +1259,50 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   Color _getContrastColor(Color color) {
     final luminance = color.computeLuminance();
     return luminance > 0.5 ? Colors.black87 : Colors.white;
+  }
+}
+
+class _GridPainter extends CustomPainter {
+  final int rows;
+  final int cols;
+  final double cellSize;
+
+  _GridPainter({
+    required this.rows,
+    required this.cols,
+    required this.cellSize,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    // 가로선 그리기
+    for (int i = 0; i <= rows; i++) {
+      final y = i * cellSize;
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        paint,
+      );
+    }
+
+    // 세로선 그리기
+    for (int i = 0; i <= cols; i++) {
+      final x = i * cellSize;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return true;
   }
 }
