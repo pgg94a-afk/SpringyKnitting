@@ -146,24 +146,23 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
     // 이미 같은 영상이 재생 중이면 무시
     if (_currentVideo?.id == video.id) return;
 
-    // 기존 컨트롤러 정리
-    _playerController?.close();
+    // 컨트롤러가 없을 때만 생성 (재사용을 위해)
+    if (_playerController == null) {
+      _playerController = YoutubePlayerController(
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+          mute: false,
+          loop: false,
+          enableCaption: false,
+          playsInline: true,
+          strictRelatedVideos: true,
+          origin: "https://www.youtube-nocookie.com",
+        ),
+      );
+    }
 
-    // 새 컨트롤러 생성 - 더 명시적인 설정
-    _playerController = YoutubePlayerController(
-      params: const YoutubePlayerParams(
-        showControls: true,
-        showFullscreenButton: true,
-        mute: false,
-        loop: false,
-        enableCaption: false,
-        playsInline: true,
-        strictRelatedVideos: true,
-        origin: "https://www.youtube-nocookie.com",
-      ),
-    );
-
-    // 비디오 로드 및 재생
+    // 비디오 로드 및 재생 (컨트롤러 재사용)
     _playerController!.loadVideoById(videoId: video.videoId);
 
     setState(() {
@@ -172,10 +171,10 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
   }
 
   void _stopVideo() {
-    _playerController?.close();
+    // 컨트롤러는 유지하고 상태만 변경 (재사용을 위해)
+    _playerController?.pauseVideo();
     setState(() {
       _currentVideo = null;
-      _playerController = null;
     });
   }
 
