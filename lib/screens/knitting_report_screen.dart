@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:opencv_dart/opencv_dart.dart' as cv;
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
 import '../models/youtube_video.dart';
@@ -492,11 +491,11 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                     },
                     tooltip: _isAdjustMode ? '조정 모드 (드래그/줌 가능)' : '고정 모드',
                   ),
-                  // 격자 자동 검출 버튼
+                  // 격자 크기 조정 버튼
                   IconButton(
-                    icon: const Icon(Icons.auto_fix_high),
-                    onPressed: _detectGrid,
-                    tooltip: '격자 자동 검출',
+                    icon: const Icon(Icons.grid_4x4),
+                    onPressed: _showGridSizeDialog,
+                    tooltip: '격자 크기 조정',
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -744,157 +743,144 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
   }
 
-  // OpenCV를 사용한 격자 자동 검출
-  Future<void> _detectGrid() async {
-    if (_traceImage == null) return;
+  // 격자 크기 조정 다이얼로그
+  void _showGridSizeDialog() {
+    int tempRows = _gridRows;
+    int tempCols = _gridCols;
 
-    try {
-      // 로딩 다이얼로그 표시
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text(
+            '격자 크기 조정',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        );
-      }
-
-      // 이미지 로드
-      final img = cv.imread(_traceImage!.path);
-
-      // 그레이스케일 변환
-      final gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY);
-
-      // 노이즈 제거를 위한 블러
-      final blurred = cv.GaussianBlur(gray, (5, 5), 0);
-
-      // Canny Edge Detection
-      final edges = cv.Canny(blurred, 50, 150);
-
-      // Hough Line Transform으로 선 검출
-      final lines = cv.HoughLinesP(
-        edges,
-        1,
-        3.14159 / 180,
-        threshold: 100,
-        minLineLength: 50,
-        maxLineGap: 10,
-      );
-
-      // 수평선과 수직선 분리
-      final horizontalLines = <cv.Vec4i>[];
-      final verticalLines = <cv.Vec4i>[];
-
-      for (int i = 0; i < lines.rows; i++) {
-        final line = lines.at<cv.Vec4i>(i, 0);
-        final x1 = line.val1;
-        final y1 = line.val2;
-        final x2 = line.val3;
-        final y2 = line.val4;
-
-        // 각도 계산
-        final angle = (y2 - y1).abs() / ((x2 - x1).abs() + 0.001);
-
-        if (angle < 0.2) {
-          // 거의 수평선
-          horizontalLines.add(line);
-        } else if (angle > 5) {
-          // 거의 수직선
-          verticalLines.add(line);
-        }
-      }
-
-      // 중복 선 제거 및 정렬
-      final uniqueHorizontal = _filterCloseLines(horizontalLines, true);
-      final uniqueVertical = _filterCloseLines(verticalLines, false);
-
-      // 격자 개수 계산 (선 개수 - 1)
-      final detectedRows = uniqueHorizontal.length > 0 ? uniqueHorizontal.length - 1 : _gridRows;
-      final detectedCols = uniqueVertical.length > 0 ? uniqueVertical.length - 1 : _gridCols;
-
-      // UI 업데이트
-      if (mounted) {
-        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
-
-        setState(() {
-          _gridRows = detectedRows.clamp(1, 50);
-          _gridCols = detectedCols.clamp(1, 50);
-          _initializeTraceGrid();
-        });
-
-        // 결과 표시
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('격자 검출 완료: ${_gridRows}행 × ${_gridCols}열'),
-            duration: const Duration(seconds: 2),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 행 조정
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '행 개수',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline),
+                        onPressed: tempRows > 1
+                            ? () {
+                                setDialogState(() {
+                                  tempRows--;
+                                });
+                              }
+                            : null,
+                      ),
+                      SizedBox(
+                        width: 40,
+                        child: Text(
+                          '$tempRows',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: () {
+                          setDialogState(() {
+                            tempRows++;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const Divider(),
+              // 열 조정
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '열 개수',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline),
+                        onPressed: tempCols > 1
+                            ? () {
+                                setDialogState(() {
+                                  tempCols--;
+                                });
+                              }
+                            : null,
+                      ),
+                      SizedBox(
+                        width: 40,
+                        child: Text(
+                          '$tempCols',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: () {
+                          setDialogState(() {
+                            tempCols++;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ),
-        );
-      }
-
-      // 메모리 정리
-      img.dispose();
-      gray.dispose();
-      blurred.dispose();
-      edges.dispose();
-      lines.dispose();
-    } catch (e) {
-      // 오류 처리
-      if (mounted) {
-        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('격자 검출 실패: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
-
-  // 가까운 선들을 필터링하여 중복 제거
-  List<cv.Vec4i> _filterCloseLines(List<cv.Vec4i> lines, bool isHorizontal) {
-    if (lines.isEmpty) return [];
-
-    // 선을 위치별로 정렬
-    lines.sort((a, b) {
-      final posA = isHorizontal ? (a.val2 + a.val4) / 2 : (a.val1 + a.val3) / 2;
-      final posB = isHorizontal ? (b.val2 + b.val4) / 2 : (b.val1 + b.val3) / 2;
-      return posA.compareTo(posB);
-    });
-
-    // 가까운 선들 병합 (임계값: 20픽셀)
-    final filtered = <cv.Vec4i>[];
-    final threshold = 20.0;
-
-    cv.Vec4i? current;
-
-    for (final line in lines) {
-      if (current == null) {
-        current = line;
-        continue;
-      }
-
-      final currentPos = isHorizontal
-          ? (current.val2 + current.val4) / 2
-          : (current.val1 + current.val3) / 2;
-      final linePos = isHorizontal
-          ? (line.val2 + line.val4) / 2
-          : (line.val1 + line.val3) / 2;
-
-      if ((linePos - currentPos).abs() > threshold) {
-        filtered.add(current);
-        current = line;
-      }
-    }
-
-    if (current != null) {
-      filtered.add(current);
-    }
-
-    return filtered;
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _gridRows = tempRows;
+                  _gridCols = tempCols;
+                  _initializeTraceGrid();
+                });
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _selectedAccent,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('적용'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // Video Player 표시 여부 확인

@@ -36,7 +36,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   youtube_player_iframe: ^5.1.2
   image_picker: ^1.0.7
-  opencv_dart: ^1.0.4
 
 dev_dependencies:
   flutter_test:
