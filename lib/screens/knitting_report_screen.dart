@@ -902,13 +902,13 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
   }
 
-  // 어두운 픽셀 개수로 격자선 찾기 (재설계된 알고리즘)
+  // 어두운 픽셀 개수로 격자선 찾기 (개선된 알고리즘)
   List<int> _findGridLines(Map<int, int> darkPixelCount, int totalLength) {
     if (darkPixelCount.isEmpty) return [];
 
-    // 1단계: 격자선만 정확히 추출 (매우 엄격한 기준)
-    // 격자선은 이미지를 완전히 관통하므로 최소 70% 이상의 픽셀이 어두워야 함
-    final minDarkPixels = (totalLength * 0.7).toInt();
+    // 1단계: 격자선 후보 추출 (적당히 관통하는 선)
+    // 격자선은 이미지를 관통하므로 최소 55% 이상의 픽셀이 어두워야 함
+    final minDarkPixels = (totalLength * 0.55).toInt();
 
     final candidateLines = <int>[];
     for (final entry in darkPixelCount.entries) {
@@ -917,7 +917,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       }
     }
 
-    if (candidateLines.length < 10) return []; // 너무 적으면 실패
+    if (candidateLines.length < 10) return [];
 
     // 2단계: 연속된 픽셀을 하나의 선으로 그룹화
     final groupedLines = <int>[];
@@ -925,7 +925,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     int currentGroupEnd = candidateLines[0];
 
     for (int i = 1; i < candidateLines.length; i++) {
-      if (candidateLines[i] - currentGroupEnd <= 2) {
+      if (candidateLines[i] - currentGroupEnd <= 3) {
         currentGroupEnd = candidateLines[i];
       } else {
         groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
@@ -935,52 +935,47 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
     groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
 
-    if (groupedLines.length < 10) return []; // 최소 10개 격자선 필요
+    if (groupedLines.length < 10) return [];
 
-    // 3단계: 간격 히스토그램으로 가장 빈번한 간격 찾기
+    // 3단계: 중간값 간격 계산 (가장 안정적인 방법)
     final intervals = <int>[];
     for (int i = 1; i < groupedLines.length; i++) {
       intervals.add(groupedLines[i] - groupedLines[i - 1]);
     }
 
-    // 간격의 빈도 계산
-    final intervalFrequency = <int, int>{};
-    for (final interval in intervals) {
-      // ±2 픽셀 범위로 그룹화
-      int key = (interval / 3).round() * 3;
-      intervalFrequency[key] = (intervalFrequency[key] ?? 0) + 1;
-    }
+    intervals.sort();
+    final medianInterval = intervals[intervals.length ~/ 2];
 
-    // 가장 빈번한 간격 찾기
-    int mostCommonInterval = 0;
-    int maxFrequency = 0;
-    for (final entry in intervalFrequency.entries) {
-      if (entry.value > maxFrequency) {
-        maxFrequency = entry.value;
-        mostCommonInterval = entry.key;
-      }
-    }
+    if (medianInterval < 5) return []; // 너무 작은 간격은 무시
 
-    if (mostCommonInterval == 0) return [];
-
-    // 4단계: 가장 긴 등간격 시퀀스 찾기
+    // 4단계: 등간격 시퀀스 구성 (누락된 선 허용)
     List<int> longestSequence = [];
 
-    for (int startIdx = 0; startIdx < groupedLines.length; startIdx++) {
+    for (int startIdx = 0; startIdx < groupedLines.length && startIdx < 3; startIdx++) {
       List<int> currentSequence = [groupedLines[startIdx]];
-      int expectedPos = groupedLines[startIdx] + mostCommonInterval;
+      int expectedPos = groupedLines[startIdx] + medianInterval;
+      int skipCount = 0; // 누락된 선 카운트
 
       for (int i = startIdx + 1; i < groupedLines.length; i++) {
         final actualPos = groupedLines[i];
         final diff = (actualPos - expectedPos).abs();
 
-        // 매우 엄격한 허용 오차 (±15%)
-        if (diff <= mostCommonInterval * 0.15) {
+        // 허용 오차 20%
+        if (diff <= medianInterval * 0.2) {
           currentSequence.add(actualPos);
-          expectedPos = actualPos + mostCommonInterval;
-        } else if (actualPos > expectedPos + mostCommonInterval) {
-          // 간격이 너무 크면 다음 시작점으로
-          break;
+          expectedPos = actualPos + medianInterval;
+          skipCount = 0; // 성공하면 리셋
+        } else if (actualPos > expectedPos && actualPos < expectedPos + medianInterval * 0.5) {
+          // 간격이 약간 맞지 않지만 계속 진행 (다음 위치 재조정)
+          expectedPos += medianInterval;
+          skipCount++;
+          if (skipCount > 3) break; // 3번 연속 실패하면 중단
+        } else if (actualPos > expectedPos + medianInterval * 0.5) {
+          // 누락된 선이 있을 수 있음 - 건너뛰고 계속
+          expectedPos += medianInterval;
+          skipCount++;
+          i--; // 다시 같은 위치 체크
+          if (skipCount > 5) break; // 5번 이상 누락되면 중단
         }
       }
 
@@ -989,7 +984,6 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       }
     }
 
-    // 최소 10개 이상의 등간격 선이 있어야 유효한 격자
     return longestSequence.length >= 10 ? longestSequence : [];
   }
 
