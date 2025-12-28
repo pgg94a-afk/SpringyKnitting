@@ -61,10 +61,6 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   int? _dragEndCol;
   bool _isSelectingExcluded = false;
 
-  // 한 손가락 범위 지정용
-  int? _firstTapRow;
-  int? _firstTapCol;
-
   // 격자 보기 관련
   final TransformationController _transformationController = TransformationController();
   bool _isGridConfigured = false; // 격자 설정 완료 여부
@@ -593,7 +589,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '터치 또는 드래그로 X영역 선택/해제',
+                            '탭: 단일 선택 / 길게 누르고 드래그: 범위 선택',
                             style: TextStyle(fontSize: 11, color: Colors.red),
                           ),
                         ),
@@ -684,14 +680,14 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       onTapDown: _isSelectingExcluded ? (details) {
         _handleGridTap(details, baseCellSize, gridWidth, gridHeight);
       } : null,
-      onPanStart: _isSelectingExcluded ? (details) {
-        _handleGridPanStart(details, baseCellSize, gridWidth, gridHeight);
+      onLongPressStart: _isSelectingExcluded ? (details) {
+        _handleGridLongPressStart(details, baseCellSize, gridWidth, gridHeight);
       } : null,
-      onPanUpdate: _isSelectingExcluded ? (details) {
-        _handleGridPanUpdate(details, baseCellSize, gridWidth, gridHeight);
+      onLongPressMoveUpdate: _isSelectingExcluded ? (details) {
+        _handleGridLongPressUpdate(details, baseCellSize, gridWidth, gridHeight);
       } : null,
-      onPanEnd: _isSelectingExcluded ? (_) {
-        _handleGridPanEnd();
+      onLongPressEnd: _isSelectingExcluded ? (_) {
+        _handleGridLongPressEnd();
       } : null,
       child: InteractiveViewer(
         transformationController: _transformationController,
@@ -740,46 +736,18 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       final row = (_gridRows - 1 - (gridY / cellSize).floor()).clamp(0, _gridRows - 1);
 
       setState(() {
-        if (_firstTapRow == null || _firstTapCol == null) {
-          // 첫 번째 탭: 시작점 저장하고 미리보기 표시
-          _firstTapRow = row;
-          _firstTapCol = col;
-          _dragStartRow = row;
-          _dragStartCol = col;
-          _dragEndRow = row;
-          _dragEndCol = col;
+        // 단일 셀 토글
+        final key = '$row,$col';
+        if (_excludedCells.contains(key)) {
+          _excludedCells.remove(key);
         } else {
-          // 두 번째 탭: 범위 선택 완료
-          final minRow = _firstTapRow! < row ? _firstTapRow! : row;
-          final maxRow = _firstTapRow! > row ? _firstTapRow! : row;
-          final minCol = _firstTapCol! < col ? _firstTapCol! : col;
-          final maxCol = _firstTapCol! > col ? _firstTapCol! : col;
-
-          // 범위 내 모든 셀 토글
-          for (int r = minRow; r <= maxRow; r++) {
-            for (int c = minCol; c <= maxCol; c++) {
-              final key = '$r,$c';
-              if (_excludedCells.contains(key)) {
-                _excludedCells.remove(key);
-              } else {
-                _excludedCells.add(key);
-              }
-            }
-          }
-
-          // 초기화
-          _firstTapRow = null;
-          _firstTapCol = null;
-          _dragStartRow = null;
-          _dragStartCol = null;
-          _dragEndRow = null;
-          _dragEndCol = null;
+          _excludedCells.add(key);
         }
       });
     }
   }
 
-  void _handleGridPanStart(DragStartDetails details, double cellSize, double gridWidth, double gridHeight) {
+  void _handleGridLongPressStart(LongPressStartDetails details, double cellSize, double gridWidth, double gridHeight) {
     final RenderBox? gridBox = _gridPaintKey.currentContext?.findRenderObject() as RenderBox?;
     if (gridBox == null) return;
 
@@ -798,7 +766,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
   }
 
-  void _handleGridPanUpdate(DragUpdateDetails details, double cellSize, double gridWidth, double gridHeight) {
+  void _handleGridLongPressUpdate(LongPressMoveUpdateDetails details, double cellSize, double gridWidth, double gridHeight) {
     if (_dragStartRow == null || _dragStartCol == null) return;
 
     final RenderBox? gridBox = _gridPaintKey.currentContext?.findRenderObject() as RenderBox?;
@@ -817,7 +785,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
   }
 
-  void _handleGridPanEnd() {
+  void _handleGridLongPressEnd() {
     if (_dragStartRow == null || _dragStartCol == null || _dragEndRow == null || _dragEndCol == null) return;
 
     setState(() {
@@ -1552,17 +1520,6 @@ class _TraceGridPainter extends CustomPainter {
     return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
-  // 지그재그 패턴으로 셀 번호 계산 (우측 하단이 1번)
-  int _getCellNumber(int row, int col) {
-    if (row % 2 == 0) {
-      // 짝수 행 (0, 2, 4...): 오른쪽 → 왼쪽
-      return row * cols + (cols - col);
-    } else {
-      // 홀수 행 (1, 3, 5...): 왼쪽 → 오른쪽
-      return row * cols + col + 1;
-    }
-  }
-
   @override
   void paint(Canvas canvas, Size size) {
     // 0. 행 번호 표시 (왼쪽에, 5단위로)
@@ -1573,14 +1530,14 @@ class _TraceGridPainter extends CustomPainter {
     );
 
     for (int row = 0; row < rows; row++) {
-      // 가장 오른쪽 열에서 셀 번호를 계산
-      final cellNumber = _getCellNumber(row, cols - 1);
+      // 맨 하단부터 1, 2, 3... 순서
+      final rowNumber = row + 1;
 
-      // 1, 6, 11, 16, 21... 형태로 5단위마다 표시
-      if ((cellNumber - 1) % 5 == 0) {
+      // 5, 10, 15, 20, 25... 형태로 5단위마다 표시
+      if (rowNumber % 5 == 0) {
         final displayRow = rows - 1 - row;
         final textPainter = TextPainter(
-          text: TextSpan(text: '$cellNumber', style: numberTextStyle),
+          text: TextSpan(text: '$rowNumber', style: numberTextStyle),
           textDirection: TextDirection.ltr,
         );
         textPainter.layout();
@@ -1607,14 +1564,10 @@ class _TraceGridPainter extends CustomPainter {
 
     for (int i = 0; i <= rows; i++) {
       final y = i * cellSize;
-      final row = rows - i;
+      final rowNumber = rows - i; // 맨 하단이 1
 
       // 행 번호가 5의 배수면 굵은 선
-      bool isBoldLine = false;
-      if (row > 0 && row <= rows) {
-        final cellNumber = _getCellNumber(row - 1, cols - 1);
-        isBoldLine = (cellNumber - 1) % 5 == 0;
-      }
+      final isBoldLine = rowNumber > 0 && rowNumber % 5 == 0;
 
       canvas.drawLine(
         Offset(0, y),
