@@ -149,10 +149,8 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
     // 기존 컨트롤러 정리
     _playerController?.close();
 
-    // 새 컨트롤러 생성
-    _playerController = YoutubePlayerController.fromVideoId(
-      videoId: video.videoId,
-      autoPlay: true,
+    // 새 컨트롤러 생성 - 더 명시적인 설정
+    _playerController = YoutubePlayerController(
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
@@ -160,8 +158,12 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> {
         loop: false,
         enableCaption: false,
         playsInline: true,
+        strictRelatedVideos: true,
       ),
     );
+
+    // 비디오 로드 및 재생
+    _playerController!.loadVideoById(videoId: video.videoId);
 
     setState(() {
       _currentVideo = video;
