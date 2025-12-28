@@ -209,7 +209,11 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   Widget _buildVideoTab() {
-    return YoutubeListScreen(key: _youtubeScreenKey, embedded: true);
+    return YoutubeListScreen(
+      key: _youtubeScreenKey,
+      embedded: true,
+      isActive: _currentNavIndex == 1, // 영상 탭이 활성화되어 있을 때만 true
+    );
   }
 
   Widget _buildPatternTab() {
@@ -296,14 +300,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // YouTube Player
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: YoutubePlayer(
-                      controller: controller,
-                    ),
-                  ),
-                  // 제목 바
+                  // 제목 바 (위로 이동)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -312,7 +309,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                     decoration: const BoxDecoration(
                       color: Color(0xFFFFF0F3),
                       borderRadius: BorderRadius.vertical(
-                        bottom: Radius.circular(10),
+                        top: Radius.circular(10),
                       ),
                     ),
                     child: Row(
@@ -336,6 +333,14 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                           color: Colors.black54,
                         ),
                       ],
+                    ),
+                  ),
+                  // YouTube Player
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: YoutubePlayer(
+                      key: const ValueKey('floating_player'),
+                      controller: controller,
                     ),
                   ),
                 ],

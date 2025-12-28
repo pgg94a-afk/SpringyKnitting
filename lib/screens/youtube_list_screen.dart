@@ -5,8 +5,13 @@ import '../models/youtube_video.dart';
 
 class YoutubeListScreen extends StatefulWidget {
   final bool embedded;
+  final bool isActive; // 현재 탭이 활성화되어 있는지 여부
 
-  const YoutubeListScreen({super.key, this.embedded = false});
+  const YoutubeListScreen({
+    super.key,
+    this.embedded = false,
+    this.isActive = true,
+  });
 
   @override
   State<YoutubeListScreen> createState() => YoutubeListScreenState();
@@ -229,7 +234,8 @@ class YoutubeListScreenState extends State<YoutubeListScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_currentVideo != null) _buildPlayer(),
+        // 현재 탭이 활성화되어 있을 때만 player 표시 (floating player와 충돌 방지)
+        if (_currentVideo != null && widget.isActive) _buildPlayer(),
         Expanded(
           child: _videos.isEmpty
               ? _buildEmptyState()
@@ -301,20 +307,12 @@ class YoutubeListScreenState extends State<YoutubeListScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: YoutubePlayer(
-                controller: _playerController!,
-              ),
-            ),
-          ),
+          // 제목 바 (위로 이동)
           Container(
             padding: const EdgeInsets.all(12),
             decoration: const BoxDecoration(
               color: Color(0xFFFFF0F3),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
@@ -339,6 +337,17 @@ class YoutubeListScreenState extends State<YoutubeListScreen>
                   ),
                 ),
               ],
+            ),
+          ),
+          // YouTube Player
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: YoutubePlayer(
+                key: const ValueKey('main_player'),
+                controller: _playerController!,
+              ),
             ),
           ),
         ],
