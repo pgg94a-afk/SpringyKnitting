@@ -289,9 +289,7 @@ class _StitchPadState extends State<StitchPad> {
               return Padding(
                 padding: EdgeInsets.only(right: isLast ? 0 : StitchPad.buttonSpacing),
                 child: buttonIndex < displayButtons.length
-                    ? _isEditMode
-                        ? _buildEditableButton(displayButtons[buttonIndex], buttonIndex, buttonSize, gridColumns)
-                        : _buildStitchButton(displayButtons[buttonIndex], buttonSize)
+                    ? _buildEditableButton(displayButtons[buttonIndex], buttonIndex, buttonSize, gridColumns)
                     : _buildEmptySlot(buttonSize),
               );
             }),
@@ -366,27 +364,30 @@ class _StitchPadState extends State<StitchPad> {
               AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
                 opacity: isDragging ? 0.0 : 1.0,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      width: size,
-                      height: size,
-                      decoration: BoxDecoration(
-                        color: button.color.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.6),
-                          width: 1.5,
+                child: GestureDetector(
+                  onTap: !_isEditMode ? () => widget.onButtonTap(button) : null,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        width: size,
+                        height: size,
+                        decoration: BoxDecoration(
+                          color: button.color.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.6),
+                            width: 1.5,
+                          ),
                         ),
+                        child: _buildButtonContent(button, size),
                       ),
-                      child: _buildButtonContent(button, size),
                     ),
                   ),
                 ),
               ),
-              if (!isDragging)
+              if (_isEditMode && !isDragging)
                 Positioned(
                   top: -6,
                   right: -6,
@@ -459,37 +460,6 @@ class _StitchPadState extends State<StitchPad> {
     );
   }
 
-  Widget _buildStitchButton(CustomButton button, double size) {
-    return GestureDetector(
-      onTap: () => widget.onButtonTap(button),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: button.color.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.6),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: _buildButtonContent(button, size),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildEmptySlot(double size) {
     return GestureDetector(
