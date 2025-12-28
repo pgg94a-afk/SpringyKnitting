@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
 import '../models/youtube_video.dart';
@@ -491,11 +492,17 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                     },
                     tooltip: _isAdjustMode ? '조정 모드 (드래그/줌 가능)' : '고정 모드',
                   ),
+                  // 격자 자동 감지 버튼
+                  IconButton(
+                    icon: const Icon(Icons.auto_fix_high),
+                    onPressed: _detectGridFromImage,
+                    tooltip: '격자 자동 감지',
+                  ),
                   // 격자 크기 조정 버튼
                   IconButton(
                     icon: const Icon(Icons.grid_4x4),
                     onPressed: _showGridSizeDialog,
-                    tooltip: '격자 크기 조정',
+                    tooltip: '격자 크기 수동 조정',
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -741,6 +748,160 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         _currentTraceCol = _gridCols - 1;
       }
     }
+  }
+
+  // 픽셀 기반 격자 자동 감지
+  Future<void> _detectGridFromImage() async {
+    if (_traceImage == null) return;
+
+    try {
+      // 로딩 다이얼로그 표시
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      // 이미지 로드
+      final bytes = await _traceImage!.readAsBytes();
+      final image = img.decodeImage(bytes);
+
+      if (image == null) throw Exception('이미지를 읽을 수 없습니다');
+
+      // 가로선 감지 (각 행의 평균 밝기)
+      final horizontalBrightness = <int, double>{};
+      for (int y = 0; y < image.height; y++) {
+        double totalBrightness = 0;
+        for (int x = 0; x < image.width; x++) {
+          final pixel = image.getPixel(x, y);
+          // RGB를 그레이스케일로 변환
+          final brightness = (pixel.r + pixel.g + pixel.b) / 3;
+          totalBrightness += brightness;
+        }
+        horizontalBrightness[y] = totalBrightness / image.width;
+      }
+
+      // 세로선 감지 (각 열의 평균 밝기)
+      final verticalBrightness = <int, double>{};
+      for (int x = 0; x < image.width; x++) {
+        double totalBrightness = 0;
+        for (int y = 0; y < image.height; y++) {
+          final pixel = image.getPixel(x, y);
+          final brightness = (pixel.r + pixel.g + pixel.b) / 3;
+          totalBrightness += brightness;
+        }
+        verticalBrightness[x] = totalBrightness / image.height;
+      }
+
+      // 어두운 선 찾기 (격자선)
+      final horizontalLines = _findDarkLines(horizontalBrightness);
+      final verticalLines = _findDarkLines(verticalBrightness);
+
+      // 격자 개수 계산
+      int detectedRows = horizontalLines.length > 1 ? horizontalLines.length - 1 : _gridRows;
+      int detectedCols = verticalLines.length > 1 ? verticalLines.length - 1 : _gridCols;
+
+      // UI 업데이트
+      if (mounted) {
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+
+        setState(() {
+          _gridRows = detectedRows.clamp(1, 50);
+          _gridCols = detectedCols.clamp(1, 50);
+          _initializeTraceGrid();
+        });
+
+        // 결과 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('격자 검출 완료: ${_gridRows}행 × ${_gridCols}열'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: _selectedAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      // 오류 처리
+      if (mounted) {
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('격자 검출 실패: 수동으로 조정해주세요'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  // 밝기 데이터에서 어두운 선 찾기
+  List<int> _findDarkLines(Map<int, double> brightness) {
+    if (brightness.isEmpty) return [];
+
+    // 평균 밝기 계산
+    final avgBrightness = brightness.values.reduce((a, b) => a + b) / brightness.length;
+
+    // 표준편차 계산
+    double variance = 0;
+    for (final value in brightness.values) {
+      variance += (value - avgBrightness) * (value - avgBrightness);
+    }
+    final stdDev = variance > 0 ? (variance / brightness.length) : 1.0;
+
+    // 임계값: 평균보다 표준편차만큼 어두운 선
+    final threshold = avgBrightness - (stdDev * 0.5);
+
+    // 어두운 선 찾기
+    final darkLines = <int>[];
+    for (final entry in brightness.entries) {
+      if (entry.value < threshold) {
+        darkLines.add(entry.key);
+      }
+    }
+
+    // 가까운 선들을 그룹화 (연속된 어두운 픽셀은 하나의 선)
+    final groupedLines = <int>[];
+    int? lastLine;
+
+    for (final line in darkLines) {
+      if (lastLine == null || line - lastLine > 3) {
+        groupedLines.add(line);
+      }
+      lastLine = line;
+    }
+
+    // 정기적인 패턴 찾기 (격자선은 일정한 간격)
+    if (groupedLines.length < 2) return groupedLines;
+
+    // 가장 일반적인 간격 찾기
+    final intervals = <int, int>{};
+    for (int i = 1; i < groupedLines.length; i++) {
+      final interval = groupedLines[i] - groupedLines[i - 1];
+      intervals[interval] = (intervals[interval] ?? 0) + 1;
+    }
+
+    if (intervals.isEmpty) return groupedLines;
+
+    // 가장 많이 나타나는 간격
+    final commonInterval = intervals.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+
+    // 공통 간격을 가진 선들만 필터링
+    final filteredLines = <int>[groupedLines[0]];
+    for (int i = 1; i < groupedLines.length; i++) {
+      final interval = groupedLines[i] - filteredLines.last;
+      // 허용 오차 20%
+      if ((interval - commonInterval).abs() < commonInterval * 0.2) {
+        filteredLines.add(groupedLines[i]);
+      }
+    }
+
+    return filteredLines;
   }
 
   // 격자 크기 조정 다이얼로그
