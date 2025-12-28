@@ -852,10 +852,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     for (final value in brightness.values) {
       variance += (value - avgBrightness) * (value - avgBrightness);
     }
-    final stdDev = variance > 0 ? (variance / brightness.length) : 1.0;
+    final stdDev = variance > 0 ? (variance / brightness.length).abs() : 1.0;
 
-    // 임계값: 평균보다 표준편차만큼 어두운 선
-    final threshold = avgBrightness - (stdDev * 0.5);
+    // 임계값을 낮춰서 더 많은 어두운 선을 찾음
+    final threshold = avgBrightness - (stdDev * 0.3);
 
     // 어두운 선 찾기
     final darkLines = <int>[];
@@ -865,38 +865,37 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       }
     }
 
+    if (darkLines.isEmpty) return [];
+
     // 가까운 선들을 그룹화 (연속된 어두운 픽셀은 하나의 선)
     final groupedLines = <int>[];
     int? lastLine;
 
     for (final line in darkLines) {
-      if (lastLine == null || line - lastLine > 3) {
+      if (lastLine == null || line - lastLine > 2) {
         groupedLines.add(line);
       }
       lastLine = line;
     }
 
-    // 정기적인 패턴 찾기 (격자선은 일정한 간격)
     if (groupedLines.length < 2) return groupedLines;
 
-    // 가장 일반적인 간격 찾기
-    final intervals = <int, int>{};
+    // 가장 작은 간격 찾기 (격자선 간격)
+    int minInterval = double.maxFinite.toInt();
     for (int i = 1; i < groupedLines.length; i++) {
       final interval = groupedLines[i] - groupedLines[i - 1];
-      intervals[interval] = (intervals[interval] ?? 0) + 1;
+      if (interval > 5 && interval < minInterval) {
+        minInterval = interval;
+      }
     }
 
-    if (intervals.isEmpty) return groupedLines;
-
-    // 가장 많이 나타나는 간격
-    final commonInterval = intervals.entries.reduce((a, b) => a.value > b.value ? a : b).key;
-
-    // 공통 간격을 가진 선들만 필터링
+    // 최소 간격을 기준으로 균등한 격자선 추출
     final filteredLines = <int>[groupedLines[0]];
     for (int i = 1; i < groupedLines.length; i++) {
       final interval = groupedLines[i] - filteredLines.last;
-      // 허용 오차 20%
-      if ((interval - commonInterval).abs() < commonInterval * 0.2) {
+      // 최소 간격의 배수인지 확인 (허용 오차 10%)
+      final ratio = interval / minInterval;
+      if ((ratio - ratio.round()).abs() < 0.1) {
         filteredLines.add(groupedLines[i]);
       }
     }
