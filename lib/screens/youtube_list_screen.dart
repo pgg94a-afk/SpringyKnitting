@@ -5,12 +5,10 @@ import '../models/youtube_video.dart';
 
 class YoutubeListScreen extends StatefulWidget {
   final bool embedded;
-  final bool isActive; // 현재 탭이 활성화되어 있는지 여부
 
   const YoutubeListScreen({
     super.key,
     this.embedded = false,
-    this.isActive = true,
   });
 
   @override
@@ -191,6 +189,11 @@ class YoutubeListScreenState extends State<YoutubeListScreen>
     });
   }
 
+  // 외부에서 호출 가능한 public 메서드
+  void stopVideo() {
+    _stopVideo();
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context); // AutomaticKeepAliveClientMixin 필수
@@ -234,8 +237,7 @@ class YoutubeListScreenState extends State<YoutubeListScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 현재 탭이 활성화되어 있을 때만 player 표시 (floating player와 충돌 방지)
-        if (_currentVideo != null && widget.isActive) _buildPlayer(),
+        // Player는 KnittingReportScreen에서 관리 (중복 렌더링 방지)
         Expanded(
           child: _videos.isEmpty
               ? _buildEmptyState()

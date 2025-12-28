@@ -172,8 +172,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                 _buildBottomNavigationBar(),
               ],
             ),
-            // 탭 전환 시 floating player 표시
-            if (_shouldShowFloatingPlayer()) _buildFloatingPlayer(),
+            // Video Player (한 곳에서만 렌더링)
+            if (_shouldShowVideoPlayer()) _buildVideoPlayerWidget(),
           ],
         ),
       ),
@@ -212,7 +212,6 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     return YoutubeListScreen(
       key: _youtubeScreenKey,
       embedded: true,
-      isActive: _currentNavIndex == 1, // 영상 탭이 활성화되어 있을 때만 true
     );
   }
 
@@ -247,17 +246,15 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     );
   }
 
-  // Floating player 표시 여부 확인
-  bool _shouldShowFloatingPlayer() {
-    // 영상 탭이 아니고, 영상이 재생 중일 때만 표시
-    if (_currentNavIndex == 1) return false;
+  // Video Player 표시 여부 확인
+  bool _shouldShowVideoPlayer() {
     final youtubeState = _youtubeScreenKey.currentState;
     return youtubeState?.currentVideo != null &&
            youtubeState?.playerController != null;
   }
 
-  // Floating player UI
-  Widget _buildFloatingPlayer() {
+  // Video Player 위젯 (영상 탭이면 상단에, 아니면 floating)
+  Widget _buildVideoPlayerWidget() {
     final youtubeState = _youtubeScreenKey.currentState;
     if (youtubeState == null) return const SizedBox.shrink();
 
@@ -265,6 +262,77 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     final controller = youtubeState.playerController;
     if (video == null || controller == null) return const SizedBox.shrink();
 
+    // 영상 탭일 때는 상단에 큰 플레이어
+    if (_currentNavIndex == 1) {
+      return Positioned(
+        top: 56, // 헤더 아래
+        left: 0,
+        right: 0,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 제목 바
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFF0F3),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        video.title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        youtubeState.stopVideo();
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        size: 20,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // YouTube Player
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: YoutubePlayer(
+                    controller: controller,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 다른 탭일 때는 Floating Player
+    return _buildFloatingPlayer(video, controller);
+  }
+
+  // Floating player UI
+  Widget _buildFloatingPlayer(YoutubeVideo video, YoutubePlayerController controller) {
     return Positioned(
       right: 16,
       bottom: 100, // 바텀 네비게이션 바 위에 배치
@@ -339,7 +407,6 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                   AspectRatio(
                     aspectRatio: 16 / 9,
                     child: YoutubePlayer(
-                      key: const ValueKey('floating_player'),
                       controller: controller,
                     ),
                   ),
