@@ -707,19 +707,20 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   Widget _buildInteractiveGrid() {
-    // 화면 크기에 맞춰 셀 크기 계산
-    final screenSize = MediaQuery.of(context).size;
-    final availableWidth = screenSize.width - 32;
-    final availableHeight = screenSize.height - 350; // 상단 컨트롤 + 하단 키패드 공간
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 실제 사용 가능한 공간으로 셀 크기 계산
+        final availableWidth = constraints.maxWidth - 32;
+        final availableHeight = constraints.maxHeight - 16; // 여백
 
-    final cellSizeByWidth = availableWidth / _gridCols;
-    final cellSizeByHeight = availableHeight / _gridRows;
-    final baseCellSize = (cellSizeByWidth < cellSizeByHeight ? cellSizeByWidth : cellSizeByHeight).clamp(10.0, 60.0);
+        final cellSizeByWidth = availableWidth / _gridCols;
+        final cellSizeByHeight = availableHeight / _gridRows;
+        final baseCellSize = (cellSizeByWidth < cellSizeByHeight ? cellSizeByWidth : cellSizeByHeight).clamp(10.0, 60.0);
 
-    final gridWidth = _gridCols * baseCellSize;
-    final gridHeight = _gridRows * baseCellSize;
+        final gridWidth = _gridCols * baseCellSize;
+        final gridHeight = _gridRows * baseCellSize;
 
-    return GestureDetector(
+        return GestureDetector(
       onTapUp: _isSelectingExcluded ? (details) {
         _handleGridTap(details, baseCellSize, gridWidth, gridHeight);
       } : null,
@@ -760,6 +761,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
           ),
         ),
       ),
+        );
+      },
     );
   }
 
