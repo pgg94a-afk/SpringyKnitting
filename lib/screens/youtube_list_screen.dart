@@ -24,6 +24,10 @@ class _YoutubeListScreenState extends State<YoutubeListScreen>
   @override
   bool get wantKeepAlive => true;
 
+  // 외부에서 현재 재생 중인 영상 정보에 접근하기 위한 getter
+  YoutubeVideo? get currentVideo => _currentVideo;
+  YoutubePlayerController? get playerController => _playerController;
+
   @override
   void dispose() {
     _playerController?.close();

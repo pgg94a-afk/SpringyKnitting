@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
 import '../widgets/stitch_pad.dart';
@@ -149,24 +150,30 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     return Scaffold(
       backgroundColor: _glassBackground,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            _buildHeader(),
-            Expanded(
-              child: _buildPageView(),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: _buildPageView(),
+                ),
+                if (_currentNavIndex == 0)
+                  StitchPad(
+                    buttons: _padButtons,
+                    onButtonTap: _addStitch,
+                    onAddRow: _addRow,
+                    onDelete: _removeLastStitch,
+                    onEmptySlotTap: _showAddButton,
+                    onButtonsReordered: _onButtonsReordered,
+                    onButtonDeleted: _onButtonDeleted,
+                  ),
+                _buildBottomNavigationBar(),
+              ],
             ),
-            if (_currentNavIndex == 0)
-              StitchPad(
-                buttons: _padButtons,
-                onButtonTap: _addStitch,
-                onAddRow: _addRow,
-                onDelete: _removeLastStitch,
-                onEmptySlotTap: _showAddButton,
-                onButtonsReordered: _onButtonsReordered,
-                onButtonDeleted: _onButtonDeleted,
-              ),
-            _buildBottomNavigationBar(),
+            // 탭 전환 시 floating player 표시
+            if (_shouldShowFloatingPlayer()) _buildFloatingPlayer(),
           ],
         ),
       ),
@@ -232,6 +239,110 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Floating player 표시 여부 확인
+  bool _shouldShowFloatingPlayer() {
+    // 영상 탭이 아니고, 영상이 재생 중일 때만 표시
+    if (_currentNavIndex == 1) return false;
+    final youtubeState = _youtubeScreenKey.currentState;
+    return youtubeState?.currentVideo != null &&
+           youtubeState?.playerController != null;
+  }
+
+  // Floating player UI
+  Widget _buildFloatingPlayer() {
+    final youtubeState = _youtubeScreenKey.currentState;
+    if (youtubeState == null) return const SizedBox.shrink();
+
+    final video = youtubeState.currentVideo;
+    final controller = youtubeState.playerController;
+    if (video == null || controller == null) return const SizedBox.shrink();
+
+    return Positioned(
+      right: 16,
+      bottom: 100, // 바텀 네비게이션 바 위에 배치
+      child: GestureDetector(
+        onTap: () {
+          // floating player 탭하면 영상 탭으로 이동
+          setState(() {
+            _currentNavIndex = 1;
+          });
+          _pageController.jumpToPage(1);
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              width: 160,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _accentColor.withOpacity(0.5),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // YouTube Player
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: YoutubePlayer(
+                      controller: controller,
+                    ),
+                  ),
+                  // 제목 바
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFF0F3),
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(10),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            video.title,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.open_in_full,
+                          size: 12,
+                          color: Colors.black54,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
