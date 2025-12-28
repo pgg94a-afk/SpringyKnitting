@@ -24,6 +24,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   final GlobalKey<YoutubeListScreenState> _youtubeScreenKey = GlobalKey();
   final GlobalKey _youtubePlayerKey = GlobalKey(); // YoutubePlayer 위젯 인스턴스 유지용
 
+  // Floating player 위치 관리
+  double _floatingPlayerX = 16; // 오른쪽 여백
+  double _floatingPlayerY = 100; // 바텀 네비게이션 바 위
+
   // Liquid Glass 색상 정의
   static const Color _glassBackground = Color(0xFFF1F0EF);
   static const Color _accentColor = Color(0xFF6B7280);
@@ -214,6 +218,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     return YoutubeListScreen(
       key: _youtubeScreenKey,
       embedded: true,
+      onVideoStateChanged: () {
+        // 영상 상태가 변경되면 KnittingReportScreen rebuild
+        setState(() {});
+      },
     );
   }
 
@@ -337,8 +345,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   // Floating player UI
   Widget _buildFloatingPlayer(YoutubeVideo video, YoutubePlayerController controller) {
     return Positioned(
-      right: 16,
-      bottom: 100, // 바텀 네비게이션 바 위에 배치
+      right: _floatingPlayerX,
+      bottom: _floatingPlayerY,
       child: GestureDetector(
         onTap: () {
           // floating player 탭하면 영상 탭으로 이동
@@ -346,6 +354,19 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             _currentNavIndex = 1;
           });
           _pageController.jumpToPage(1);
+        },
+        onPanUpdate: (details) {
+          // 드래그하여 위치 이동
+          setState(() {
+            // X축은 right 기준이므로 반대로
+            _floatingPlayerX -= details.delta.dx;
+            // Y축은 bottom 기준이므로 반대로
+            _floatingPlayerY -= details.delta.dy;
+
+            // 화면 밖으로 나가지 않도록 제한
+            _floatingPlayerX = _floatingPlayerX.clamp(0.0, MediaQuery.of(context).size.width - 176); // 160 + 16
+            _floatingPlayerY = _floatingPlayerY.clamp(0.0, MediaQuery.of(context).size.height - 200);
+          });
         },
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),

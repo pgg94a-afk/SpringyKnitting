@@ -5,10 +5,12 @@ import '../models/youtube_video.dart';
 
 class YoutubeListScreen extends StatefulWidget {
   final bool embedded;
+  final VoidCallback? onVideoStateChanged; // 영상 상태 변경 시 콜백
 
   const YoutubeListScreen({
     super.key,
     this.embedded = false,
+    this.onVideoStateChanged,
   });
 
   @override
@@ -179,6 +181,9 @@ class YoutubeListScreenState extends State<YoutubeListScreen>
     setState(() {
       _currentVideo = video;
     });
+
+    // 부모 위젯에 상태 변경 알림
+    widget.onVideoStateChanged?.call();
   }
 
   void _stopVideo() {
@@ -187,6 +192,9 @@ class YoutubeListScreenState extends State<YoutubeListScreen>
     setState(() {
       _currentVideo = null;
     });
+
+    // 부모 위젯에 상태 변경 알림
+    widget.onVideoStateChanged?.call();
   }
 
   // 외부에서 호출 가능한 public 메서드
