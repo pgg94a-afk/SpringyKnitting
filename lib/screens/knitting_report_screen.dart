@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:opencv_dart/opencv_dart.dart' as cv;
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
 import '../models/youtube_video.dart';
@@ -55,6 +56,12 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   int _currentTraceCol = 0;
   final ImagePicker _picker = ImagePicker();
 
+  // 이미지 조정 관련 변수
+  final TransformationController _transformationController = TransformationController();
+  double _imageScale = 1.0;
+  Offset _imageOffset = Offset.zero;
+  bool _isAdjustMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +86,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _transformationController.dispose();
     for (var controller in _scrollControllers.values) {
       controller.dispose();
     }
@@ -471,6 +479,25 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                       },
                     ),
                   ),
+                  // 이미지 조정 모드 토글
+                  IconButton(
+                    icon: Icon(
+                      _isAdjustMode ? Icons.lock_open : Icons.lock,
+                      color: _isAdjustMode ? _selectedAccent : Colors.black54,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isAdjustMode = !_isAdjustMode;
+                      });
+                    },
+                    tooltip: _isAdjustMode ? '조정 모드 (드래그/줌 가능)' : '고정 모드',
+                  ),
+                  // 격자 자동 검출 버튼
+                  IconButton(
+                    icon: const Icon(Icons.auto_fix_high),
+                    onPressed: _detectGrid,
+                    tooltip: '격자 자동 검출',
+                  ),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () {
@@ -479,30 +506,38 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                         _currentTraceRow = 0;
                         _currentTraceCol = 0;
                         _initializeTraceGrid();
+                        _transformationController.value = Matrix4.identity();
                       });
                     },
                   ),
                 ],
               ),
-              Text(
-                '현재 위치: ${_currentTraceRow + 1}행 ${_currentTraceCol + 1}열',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.black54,
+              if (_isAdjustMode)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    '드래그로 이동, 핀치로 확대/축소',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.black54,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
                 ),
-              ),
+              if (!_isAdjustMode)
+                Text(
+                  '현재 위치: ${_currentTraceRow + 1}행 ${_currentTraceCol + 1}열',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black54,
+                  ),
+                ),
             ],
           ),
         ),
         // Grid Canvas
         Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: _buildGridWithImage(),
-            ),
-          ),
+          child: _buildGridWithImage(),
         ),
       ],
     );
@@ -513,7 +548,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     final gridWidth = _gridCols * cellSize;
     final gridHeight = _gridRows * cellSize;
 
-    return SizedBox(
+    final gridContent = SizedBox(
       width: gridWidth,
       height: gridHeight,
       child: Stack(
@@ -539,8 +574,28 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             ),
           ),
           // 스티치 표시
-          ..._buildStitchCells(cellSize),
+          if (!_isAdjustMode) ..._buildStitchCells(cellSize),
         ],
+      ),
+    );
+
+    // 조정 모드일 때는 InteractiveViewer 사용
+    if (_isAdjustMode) {
+      return InteractiveViewer(
+        transformationController: _transformationController,
+        minScale: 0.5,
+        maxScale: 4.0,
+        boundaryMargin: const EdgeInsets.all(double.infinity),
+        child: Center(child: gridContent),
+      );
+    }
+
+    // 일반 모드일 때는 스크롤 가능
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: gridContent,
       ),
     );
   }
@@ -687,6 +742,159 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         _currentTraceCol = _gridCols - 1;
       }
     }
+  }
+
+  // OpenCV를 사용한 격자 자동 검출
+  Future<void> _detectGrid() async {
+    if (_traceImage == null) return;
+
+    try {
+      // 로딩 다이얼로그 표시
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      // 이미지 로드
+      final img = cv.imread(_traceImage!.path);
+
+      // 그레이스케일 변환
+      final gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY);
+
+      // 노이즈 제거를 위한 블러
+      final blurred = cv.GaussianBlur(gray, (5, 5), 0);
+
+      // Canny Edge Detection
+      final edges = cv.Canny(blurred, 50, 150);
+
+      // Hough Line Transform으로 선 검출
+      final lines = cv.HoughLinesP(
+        edges,
+        1,
+        3.14159 / 180,
+        threshold: 100,
+        minLineLength: 50,
+        maxLineGap: 10,
+      );
+
+      // 수평선과 수직선 분리
+      final horizontalLines = <cv.Vec4i>[];
+      final verticalLines = <cv.Vec4i>[];
+
+      for (int i = 0; i < lines.rows; i++) {
+        final line = lines.at<cv.Vec4i>(i, 0);
+        final x1 = line.val1;
+        final y1 = line.val2;
+        final x2 = line.val3;
+        final y2 = line.val4;
+
+        // 각도 계산
+        final angle = (y2 - y1).abs() / ((x2 - x1).abs() + 0.001);
+
+        if (angle < 0.2) {
+          // 거의 수평선
+          horizontalLines.add(line);
+        } else if (angle > 5) {
+          // 거의 수직선
+          verticalLines.add(line);
+        }
+      }
+
+      // 중복 선 제거 및 정렬
+      final uniqueHorizontal = _filterCloseLines(horizontalLines, true);
+      final uniqueVertical = _filterCloseLines(verticalLines, false);
+
+      // 격자 개수 계산 (선 개수 - 1)
+      final detectedRows = uniqueHorizontal.length > 0 ? uniqueHorizontal.length - 1 : _gridRows;
+      final detectedCols = uniqueVertical.length > 0 ? uniqueVertical.length - 1 : _gridCols;
+
+      // UI 업데이트
+      if (mounted) {
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+
+        setState(() {
+          _gridRows = detectedRows.clamp(1, 50);
+          _gridCols = detectedCols.clamp(1, 50);
+          _initializeTraceGrid();
+        });
+
+        // 결과 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('격자 검출 완료: ${_gridRows}행 × ${_gridCols}열'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // 메모리 정리
+      img.dispose();
+      gray.dispose();
+      blurred.dispose();
+      edges.dispose();
+      lines.dispose();
+    } catch (e) {
+      // 오류 처리
+      if (mounted) {
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('격자 검출 실패: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  // 가까운 선들을 필터링하여 중복 제거
+  List<cv.Vec4i> _filterCloseLines(List<cv.Vec4i> lines, bool isHorizontal) {
+    if (lines.isEmpty) return [];
+
+    // 선을 위치별로 정렬
+    lines.sort((a, b) {
+      final posA = isHorizontal ? (a.val2 + a.val4) / 2 : (a.val1 + a.val3) / 2;
+      final posB = isHorizontal ? (b.val2 + b.val4) / 2 : (b.val1 + b.val3) / 2;
+      return posA.compareTo(posB);
+    });
+
+    // 가까운 선들 병합 (임계값: 20픽셀)
+    final filtered = <cv.Vec4i>[];
+    final threshold = 20.0;
+
+    cv.Vec4i? current;
+
+    for (final line in lines) {
+      if (current == null) {
+        current = line;
+        continue;
+      }
+
+      final currentPos = isHorizontal
+          ? (current.val2 + current.val4) / 2
+          : (current.val1 + current.val3) / 2;
+      final linePos = isHorizontal
+          ? (line.val2 + line.val4) / 2
+          : (line.val1 + line.val3) / 2;
+
+      if ((linePos - currentPos).abs() > threshold) {
+        filtered.add(current);
+        current = line;
+      }
+    }
+
+    if (current != null) {
+      filtered.add(current);
+    }
+
+    return filtered;
   }
 
   // Video Player 표시 여부 확인
