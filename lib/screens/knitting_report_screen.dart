@@ -22,6 +22,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   final Map<int, ScrollController> _scrollControllers = {};
   late final PageController _pageController;
   final GlobalKey<YoutubeListScreenState> _youtubeScreenKey = GlobalKey();
+  final GlobalKey _youtubePlayerKey = GlobalKey(); // YoutubePlayer 위젯 인스턴스 유지용
 
   // Liquid Glass 색상 정의
   static const Color _glassBackground = Color(0xFFF1F0EF);
@@ -318,6 +319,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
                   child: YoutubePlayer(
+                    key: _youtubePlayerKey, // 동일한 key로 위젯 인스턴스 유지
                     controller: controller,
                   ),
                 ),
@@ -408,6 +410,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                   AspectRatio(
                     aspectRatio: 16 / 9,
                     child: YoutubePlayer(
+                      key: _youtubePlayerKey, // 동일한 key로 위젯 인스턴스 유지
                       controller: controller,
                     ),
                   ),
