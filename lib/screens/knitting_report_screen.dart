@@ -550,7 +550,16 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   Widget _buildGridWithImage() {
-    final cellSize = 40.0;
+    // 화면 크기 가져오기
+    final screenSize = MediaQuery.of(context).size;
+    final availableWidth = screenSize.width - 32; // 좌우 여백
+    final availableHeight = screenSize.height - 300; // 상단 컨트롤 + 하단 키패드 공간
+
+    // 격자 크기를 화면에 맞춰 동적으로 계산
+    final cellSizeByWidth = availableWidth / _gridCols;
+    final cellSizeByHeight = availableHeight / _gridRows;
+    final cellSize = (cellSizeByWidth < cellSizeByHeight ? cellSizeByWidth : cellSizeByHeight).clamp(10.0, 60.0);
+
     final gridWidth = _gridCols * cellSize;
     final gridHeight = _gridRows * cellSize;
 
@@ -566,7 +575,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                 opacity: _imageOpacity,
                 child: Image.file(
                   _traceImage!,
-                  fit: BoxFit.contain,
+                  fit: BoxFit.fill,
                 ),
               ),
             ),
@@ -601,7 +610,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: gridContent,
+        child: Center(child: gridContent),
       ),
     );
   }
@@ -844,20 +853,17 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   List<int> _findDarkLines(Map<int, double> brightness) {
     if (brightness.isEmpty) return [];
 
-    // 평균 밝기 계산
-    final avgBrightness = brightness.values.reduce((a, b) => a + b) / brightness.length;
+    // 밝기 값을 리스트로 변환하여 정렬
+    final sortedBrightness = brightness.values.toList()..sort();
 
-    // 최소값 찾기 (가장 어두운 부분)
-    final minBrightness = brightness.values.reduce((a, b) => a < b ? a : b);
-
-    // 임계값: 최소값에 훨씬 가까운 값 (최소값 + 차이의 15%)
-    // 격자선은 가장 어두운 부분이므로 최소값에 가깝게 설정
-    final threshold = minBrightness + (avgBrightness - minBrightness) * 0.15;
+    // 하위 10% 밝기값 찾기 (가장 어두운 10%)
+    final tenPercentIndex = (sortedBrightness.length * 0.1).toInt();
+    final threshold = sortedBrightness[tenPercentIndex];
 
     // 어두운 선 찾기
     final darkLines = <int>[];
     for (final entry in brightness.entries) {
-      if (entry.value < threshold) {
+      if (entry.value <= threshold) {
         darkLines.add(entry.key);
       }
     }
@@ -870,7 +876,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     int currentGroupEnd = darkLines[0];
 
     for (int i = 1; i < darkLines.length; i++) {
-      if (darkLines[i] - currentGroupEnd <= 2) {
+      if (darkLines[i] - currentGroupEnd <= 1) {
         // 연속된 픽셀, 그룹에 포함
         currentGroupEnd = darkLines[i];
       } else {
@@ -884,153 +890,91 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     // 마지막 그룹 추가
     groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
 
-    // 간격이 너무 작은 선들 제거 (최소 2픽셀 이상)
-    final filteredLines = <int>[groupedLines[0]];
-    for (int i = 1; i < groupedLines.length; i++) {
-      if (groupedLines[i] - filteredLines.last >= 2) {
-        filteredLines.add(groupedLines[i]);
-      }
-    }
-
-    return filteredLines;
+    return groupedLines;
   }
 
   // 격자 크기 조정 다이얼로그
   void _showGridSizeDialog() {
-    int tempRows = _gridRows;
-    int tempCols = _gridCols;
+    final rowsController = TextEditingController(text: '$_gridRows');
+    final colsController = TextEditingController(text: '$_gridCols');
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text(
-            '격자 크기 조정',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+      builder: (context) => AlertDialog(
+        title: const Text(
+          '격자 크기 조정',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 행 조정
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '행 개수',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline),
-                        onPressed: tempRows > 1
-                            ? () {
-                                setDialogState(() {
-                                  tempRows--;
-                                });
-                              }
-                            : null,
-                      ),
-                      SizedBox(
-                        width: 40,
-                        child: Text(
-                          '$tempRows',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline),
-                        onPressed: () {
-                          setDialogState(() {
-                            tempRows++;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 행 입력
+            TextField(
+              controller: rowsController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '행 개수',
+                hintText: '예: 48',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.view_headline),
               ),
-              const Divider(),
-              // 열 조정
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '열 개수',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline),
-                        onPressed: tempCols > 1
-                            ? () {
-                                setDialogState(() {
-                                  tempCols--;
-                                });
-                              }
-                            : null,
-                      ),
-                      SizedBox(
-                        width: 40,
-                        child: Text(
-                          '$tempCols',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline),
-                        onPressed: () {
-                          setDialogState(() {
-                            tempCols++;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('취소'),
             ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _gridRows = tempRows;
-                  _gridCols = tempCols;
-                  _initializeTraceGrid();
-                });
-                Navigator.of(context).pop();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _selectedAccent,
-                foregroundColor: Colors.white,
+            const SizedBox(height: 16),
+            // 열 입력
+            TextField(
+              controller: colsController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '열 개수',
+                hintText: '예: 49',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.view_column),
               ),
-              child: const Text('적용'),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              rowsController.dispose();
+              colsController.dispose();
+              Navigator.of(context).pop();
+            },
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final rows = int.tryParse(rowsController.text) ?? _gridRows;
+              final cols = int.tryParse(colsController.text) ?? _gridCols;
+
+              if (rows > 0 && rows <= 200 && cols > 0 && cols <= 200) {
+                setState(() {
+                  _gridRows = rows;
+                  _gridCols = cols;
+                  _initializeTraceGrid();
+                });
+                rowsController.dispose();
+                colsController.dispose();
+                Navigator.of(context).pop();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('1~200 사이의 값을 입력해주세요'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _selectedAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('적용'),
+          ),
+        ],
       ),
     );
   }
