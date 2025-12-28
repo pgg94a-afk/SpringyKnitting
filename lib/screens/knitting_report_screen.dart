@@ -720,7 +720,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     final gridHeight = _gridRows * baseCellSize;
 
     return GestureDetector(
-      onTapDown: _isSelectingExcluded ? (details) {
+      onTapUp: _isSelectingExcluded ? (details) {
         _handleGridTap(details, baseCellSize, gridWidth, gridHeight);
       } : null,
       onLongPressStart: _isSelectingExcluded ? (details) {
@@ -763,7 +763,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     );
   }
 
-  void _handleGridTap(TapDownDetails details, double cellSize, double gridWidth, double gridHeight) {
+  void _handleGridTap(TapUpDetails details, double cellSize, double gridWidth, double gridHeight) {
+    // 롱프레스 범위 선택 중이면 무시
+    if (_dragStartRow != null || _dragStartCol != null) return;
+
     // CustomPaint의 RenderBox 찾기
     final RenderBox? gridBox = _gridPaintKey.currentContext?.findRenderObject() as RenderBox?;
     if (gridBox == null) return;
