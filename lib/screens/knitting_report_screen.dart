@@ -793,34 +793,51 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
       if (image == null) throw Exception('이미지를 읽을 수 없습니다');
 
-      // 가로선 감지 (각 행의 평균 밝기)
-      final horizontalBrightness = <int, double>{};
+      // 가로선 감지: 각 행에서 어두운 픽셀의 개수 카운트
+      final horizontalDarkPixelCount = <int, int>{};
+      final globalBrightnessList = <double>[];
+
+      // 전역 밝기 임계값 계산을 위해 샘플링
+      for (int y = 0; y < image.height; y += 5) {
+        for (int x = 0; x < image.width; x += 5) {
+          final pixel = image.getPixel(x, y);
+          final brightness = (pixel.r + pixel.g + pixel.b) / 3;
+          globalBrightnessList.add(brightness);
+        }
+      }
+      globalBrightnessList.sort();
+      final darkThreshold = globalBrightnessList[(globalBrightnessList.length * 0.3).toInt()];
+
+      // 각 행에서 어두운 픽셀 개수 세기
       for (int y = 0; y < image.height; y++) {
-        double totalBrightness = 0;
+        int darkCount = 0;
         for (int x = 0; x < image.width; x++) {
           final pixel = image.getPixel(x, y);
-          // RGB를 그레이스케일로 변환
           final brightness = (pixel.r + pixel.g + pixel.b) / 3;
-          totalBrightness += brightness;
+          if (brightness < darkThreshold) {
+            darkCount++;
+          }
         }
-        horizontalBrightness[y] = totalBrightness / image.width;
+        horizontalDarkPixelCount[y] = darkCount;
       }
 
-      // 세로선 감지 (각 열의 평균 밝기)
-      final verticalBrightness = <int, double>{};
+      // 각 열에서 어두운 픽셀 개수 세기
+      final verticalDarkPixelCount = <int, int>{};
       for (int x = 0; x < image.width; x++) {
-        double totalBrightness = 0;
+        int darkCount = 0;
         for (int y = 0; y < image.height; y++) {
           final pixel = image.getPixel(x, y);
           final brightness = (pixel.r + pixel.g + pixel.b) / 3;
-          totalBrightness += brightness;
+          if (brightness < darkThreshold) {
+            darkCount++;
+          }
         }
-        verticalBrightness[x] = totalBrightness / image.height;
+        verticalDarkPixelCount[x] = darkCount;
       }
 
-      // 어두운 선 찾기 (격자선)
-      final horizontalLines = _findDarkLines(horizontalBrightness);
-      final verticalLines = _findDarkLines(verticalBrightness);
+      // 격자선 찾기 (어두운 픽셀이 많은 행/열)
+      final horizontalLines = _findGridLines(horizontalDarkPixelCount, image.width);
+      final verticalLines = _findGridLines(verticalDarkPixelCount, image.height);
 
       // 격자 개수 계산
       int detectedRows = horizontalLines.length > 1 ? horizontalLines.length - 1 : _gridRows;
@@ -885,79 +902,88 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
   }
 
-  // 밝기 데이터에서 어두운 선 찾기 (개선된 알고리즘)
-  List<int> _findDarkLines(Map<int, double> brightness) {
-    if (brightness.isEmpty) return [];
+  // 어두운 픽셀 개수로 격자선 찾기 (개선된 알고리즘)
+  List<int> _findGridLines(Map<int, int> darkPixelCount, int totalLength) {
+    if (darkPixelCount.isEmpty) return [];
 
-    // 1단계: 밝기 변화율(gradient) 계산
-    final gradients = <int, double>{};
-    final positions = brightness.keys.toList()..sort();
+    // 1단계: 어두운 픽셀이 많은 행/열 찾기 (상위 20%)
+    final sortedCounts = darkPixelCount.values.toList()..sort();
+    final threshold = sortedCounts[(sortedCounts.length * 0.8).toInt()];
 
-    for (int i = 1; i < positions.length - 1; i++) {
-      final prev = brightness[positions[i - 1]]!;
-      final next = brightness[positions[i + 1]]!;
-      // 중앙 차분으로 변화율 계산
-      gradients[positions[i]] = (next - prev).abs() / 2;
-    }
+    // 격자선은 이미지를 관통하므로 최소 60% 이상의 픽셀이 어두워야 함
+    final minDarkPixels = (totalLength * 0.6).toInt();
 
-    if (gradients.isEmpty) return [];
-
-    // 2단계: 변화율이 큰 위치 찾기 (격자선 경계)
-    final sortedGradients = gradients.values.toList()..sort();
-    // 상위 15%의 변화율을 가진 위치 = 격자선 후보
-    final gradientThreshold = sortedGradients[(sortedGradients.length * 0.85).toInt()];
-
-    final edgeLines = <int>[];
-    for (final entry in gradients.entries) {
-      if (entry.value >= gradientThreshold) {
-        edgeLines.add(entry.key);
+    final candidateLines = <int>[];
+    for (final entry in darkPixelCount.entries) {
+      if (entry.value >= threshold && entry.value >= minDarkPixels) {
+        candidateLines.add(entry.key);
       }
     }
 
-    if (edgeLines.isEmpty) return [];
+    if (candidateLines.isEmpty) return [];
 
-    // 3단계: 연속된 edge를 그룹화
+    // 2단계: 연속된 선들을 그룹화 (격자선은 1-3픽셀 두께)
     final groupedLines = <int>[];
-    int currentGroupStart = edgeLines[0];
-    int currentGroupEnd = edgeLines[0];
+    int currentGroupStart = candidateLines[0];
+    int currentGroupEnd = candidateLines[0];
 
-    for (int i = 1; i < edgeLines.length; i++) {
-      if (edgeLines[i] - currentGroupEnd <= 3) {
-        currentGroupEnd = edgeLines[i];
+    for (int i = 1; i < candidateLines.length; i++) {
+      if (candidateLines[i] - currentGroupEnd <= 3) {
+        currentGroupEnd = candidateLines[i];
       } else {
         groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
-        currentGroupStart = edgeLines[i];
-        currentGroupEnd = edgeLines[i];
+        currentGroupStart = candidateLines[i];
+        currentGroupEnd = candidateLines[i];
       }
     }
     groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
 
-    // 4단계: 정기적인 간격을 가진 선만 필터링
     if (groupedLines.length < 3) return groupedLines;
 
-    // 가장 일반적인 간격 찾기
+    // 3단계: 등간격 패턴 필터링
     final intervals = <int>[];
     for (int i = 1; i < groupedLines.length; i++) {
       intervals.add(groupedLines[i] - groupedLines[i - 1]);
     }
 
-    // 중간값(median) 간격 계산
+    // 중간값 간격 계산
     intervals.sort();
     final medianInterval = intervals[intervals.length ~/ 2];
 
-    // 중간값 간격에 가까운 선들만 선택 (허용 오차 30%)
-    final filteredLines = <int>[groupedLines[0]];
-    int expectedPos = groupedLines[0] + medianInterval;
+    // 4단계: 첫 번째 격자선 찾기 (가장 등간격에 가까운 시작점)
+    int bestStartIdx = 0;
+    int maxMatchCount = 0;
 
-    for (int i = 1; i < groupedLines.length; i++) {
+    for (int startIdx = 0; startIdx < groupedLines.length && startIdx < 5; startIdx++) {
+      int matchCount = 1;
+      int expectedPos = groupedLines[startIdx] + medianInterval;
+
+      for (int i = startIdx + 1; i < groupedLines.length; i++) {
+        final actualPos = groupedLines[i];
+        final diff = (actualPos - expectedPos).abs();
+
+        if (diff < medianInterval * 0.25) {
+          matchCount++;
+          expectedPos = actualPos + medianInterval;
+        }
+      }
+
+      if (matchCount > maxMatchCount) {
+        maxMatchCount = matchCount;
+        bestStartIdx = startIdx;
+      }
+    }
+
+    // 5단계: 등간격 선들만 선택
+    final filteredLines = <int>[groupedLines[bestStartIdx]];
+    int expectedPos = groupedLines[bestStartIdx] + medianInterval;
+
+    for (int i = bestStartIdx + 1; i < groupedLines.length; i++) {
       final actualPos = groupedLines[i];
       final diff = (actualPos - expectedPos).abs();
 
-      if (diff < medianInterval * 0.3) {
+      if (diff < medianInterval * 0.25) {
         filteredLines.add(actualPos);
-        expectedPos = actualPos + medianInterval;
-      } else {
-        // 간격이 맞지 않으면 현재 위치를 기준으로 재설정
         expectedPos = actualPos + medianInterval;
       }
     }
