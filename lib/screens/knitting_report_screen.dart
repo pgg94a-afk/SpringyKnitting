@@ -68,6 +68,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   // 격자 보기 관련
   final TransformationController _transformationController = TransformationController();
   bool _isGridConfigured = false; // 격자 설정 완료 여부
+  final GlobalKey _gridPaintKey = GlobalKey(); // CustomPaint 위치 추적용
 
   @override
   void initState() {
@@ -701,6 +702,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         scaleEnabled: !_isSelectingExcluded,
         child: Center(
           child: CustomPaint(
+            key: _gridPaintKey,
             size: Size(gridWidth, gridHeight),
             painter: _TraceGridPainter(
               rows: _gridRows,
@@ -723,24 +725,15 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   void _handleGridTap(TapDownDetails details, double cellSize, double gridWidth, double gridHeight) {
-    final matrix = _transformationController.value;
+    // CustomPaint의 RenderBox 찾기
+    final RenderBox? gridBox = _gridPaintKey.currentContext?.findRenderObject() as RenderBox?;
+    if (gridBox == null) return;
 
-    // 터치 위치를 그리드 좌표로 변환
-    final tapPosition = details.localPosition;
+    // 글로벌 좌표를 CustomPaint의 로컬 좌표로 변환
+    final localPos = gridBox.globalToLocal(details.globalPosition);
 
-    // InteractiveViewer의 변환을 역으로 적용
-    final inverseMatrix = Matrix4.inverted(matrix);
-    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, tapPosition);
-
-    // 그리드의 중앙 기준 좌표로 변환 (CustomPaint가 Center 안에 있음)
-    final RenderBox? box = context.findRenderObject() as RenderBox?;
-    if (box == null) return;
-
-    final centerX = box.size.width / 2;
-    final centerY = box.size.height / 2;
-
-    final gridX = transformedPos.dx - centerX + gridWidth / 2;
-    final gridY = transformedPos.dy - centerY + gridHeight / 2;
+    final gridX = localPos.dx;
+    final gridY = localPos.dy;
 
     if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       final col = (gridX / cellSize).floor().clamp(0, _gridCols - 1);
@@ -787,20 +780,13 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   void _handleGridPanStart(DragStartDetails details, double cellSize, double gridWidth, double gridHeight) {
-    final matrix = _transformationController.value;
-    final tapPosition = details.localPosition;
+    final RenderBox? gridBox = _gridPaintKey.currentContext?.findRenderObject() as RenderBox?;
+    if (gridBox == null) return;
 
-    final inverseMatrix = Matrix4.inverted(matrix);
-    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, tapPosition);
+    final localPos = gridBox.globalToLocal(details.globalPosition);
 
-    final RenderBox? box = context.findRenderObject() as RenderBox?;
-    if (box == null) return;
-
-    final centerX = box.size.width / 2;
-    final centerY = box.size.height / 2;
-
-    final gridX = transformedPos.dx - centerX + gridWidth / 2;
-    final gridY = transformedPos.dy - centerY + gridHeight / 2;
+    final gridX = localPos.dx;
+    final gridY = localPos.dy;
 
     if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       setState(() {
@@ -815,20 +801,13 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   void _handleGridPanUpdate(DragUpdateDetails details, double cellSize, double gridWidth, double gridHeight) {
     if (_dragStartRow == null || _dragStartCol == null) return;
 
-    final matrix = _transformationController.value;
-    final tapPosition = details.localPosition;
+    final RenderBox? gridBox = _gridPaintKey.currentContext?.findRenderObject() as RenderBox?;
+    if (gridBox == null) return;
 
-    final inverseMatrix = Matrix4.inverted(matrix);
-    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, tapPosition);
+    final localPos = gridBox.globalToLocal(details.globalPosition);
 
-    final RenderBox? box = context.findRenderObject() as RenderBox?;
-    if (box == null) return;
-
-    final centerX = box.size.width / 2;
-    final centerY = box.size.height / 2;
-
-    final gridX = transformedPos.dx - centerX + gridWidth / 2;
-    final gridY = transformedPos.dy - centerY + gridHeight / 2;
+    final gridX = localPos.dx;
+    final gridY = localPos.dy;
 
     if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       setState(() {
