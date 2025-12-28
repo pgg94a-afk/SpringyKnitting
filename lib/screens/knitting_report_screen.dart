@@ -439,7 +439,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
