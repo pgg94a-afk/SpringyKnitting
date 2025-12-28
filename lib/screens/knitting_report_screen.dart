@@ -724,15 +724,17 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
   void _handleGridTap(TapDownDetails details, double cellSize, double gridWidth, double gridHeight) {
     final matrix = _transformationController.value;
-    final inverseMatrix = Matrix4.inverted(matrix);
 
+    // 터치 위치를 그리드 좌표로 변환
+    final tapPosition = details.localPosition;
+
+    // InteractiveViewer의 변환을 역으로 적용
+    final inverseMatrix = Matrix4.inverted(matrix);
+    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, tapPosition);
+
+    // 그리드의 중앙 기준 좌표로 변환 (CustomPaint가 Center 안에 있음)
     final RenderBox? box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-
-    final localPos = box.globalToLocal(details.globalPosition);
-
-    // InteractiveViewer의 변환 적용
-    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, localPos);
 
     final centerX = box.size.width / 2;
     final centerY = box.size.height / 2;
@@ -786,13 +788,13 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
   void _handleGridPanStart(DragStartDetails details, double cellSize, double gridWidth, double gridHeight) {
     final matrix = _transformationController.value;
+    final tapPosition = details.localPosition;
+
     final inverseMatrix = Matrix4.inverted(matrix);
+    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, tapPosition);
 
     final RenderBox? box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-
-    final localPos = box.globalToLocal(details.globalPosition);
-    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, localPos);
 
     final centerX = box.size.width / 2;
     final centerY = box.size.height / 2;
@@ -814,13 +816,13 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     if (_dragStartRow == null || _dragStartCol == null) return;
 
     final matrix = _transformationController.value;
+    final tapPosition = details.localPosition;
+
     final inverseMatrix = Matrix4.inverted(matrix);
+    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, tapPosition);
 
     final RenderBox? box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-
-    final localPos = box.globalToLocal(details.globalPosition);
-    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, localPos);
 
     final centerX = box.size.width / 2;
     final centerY = box.size.height / 2;
