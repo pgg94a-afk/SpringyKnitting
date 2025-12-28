@@ -850,8 +850,9 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     // 최소값 찾기 (가장 어두운 부분)
     final minBrightness = brightness.values.reduce((a, b) => a < b ? a : b);
 
-    // 임계값: 평균과 최소값의 중간
-    final threshold = (avgBrightness + minBrightness) / 2;
+    // 임계값: 최소값에 훨씬 가까운 값 (최소값 + 차이의 15%)
+    // 격자선은 가장 어두운 부분이므로 최소값에 가깝게 설정
+    final threshold = minBrightness + (avgBrightness - minBrightness) * 0.15;
 
     // 어두운 선 찾기
     final darkLines = <int>[];
@@ -869,7 +870,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     int currentGroupEnd = darkLines[0];
 
     for (int i = 1; i < darkLines.length; i++) {
-      if (darkLines[i] - currentGroupEnd <= 3) {
+      if (darkLines[i] - currentGroupEnd <= 2) {
         // 연속된 픽셀, 그룹에 포함
         currentGroupEnd = darkLines[i];
       } else {
@@ -883,10 +884,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     // 마지막 그룹 추가
     groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
 
-    // 간격이 너무 작은 선들 제거 (최소 3픽셀 이상)
+    // 간격이 너무 작은 선들 제거 (최소 2픽셀 이상)
     final filteredLines = <int>[groupedLines[0]];
     for (int i = 1; i < groupedLines.length; i++) {
-      if (groupedLines[i] - filteredLines.last >= 3) {
+      if (groupedLines[i] - filteredLines.last >= 2) {
         filteredLines.add(groupedLines[i]);
       }
     }
