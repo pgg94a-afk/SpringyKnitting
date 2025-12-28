@@ -557,6 +557,49 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // X 지우기 버튼
+                  if (_excludedCells.isNotEmpty)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.blue,
+                          width: 2,
+                        ),
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _excludedCells.clear();
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.clear_all,
+                                color: Colors.blue,
+                                size: 18,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'X 지우기',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
                   // 초기화 버튼
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 22),
