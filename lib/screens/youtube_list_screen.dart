@@ -12,16 +12,13 @@ class YoutubeListScreen extends StatefulWidget {
   State<YoutubeListScreen> createState() => _YoutubeListScreenState();
 }
 
-class _YoutubeListScreenState extends State<YoutubeListScreen> with AutomaticKeepAliveClientMixin {
+class _YoutubeListScreenState extends State<YoutubeListScreen> {
   final List<YoutubeVideo> _videos = [];
   YoutubeVideo? _currentVideo;
   YoutubePlayerController? _playerController;
 
   // 색상 정의
   static const Color _accentColor = Color(0xFF6B7280);
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void dispose() {
@@ -181,8 +178,6 @@ class _YoutubeListScreenState extends State<YoutubeListScreen> with AutomaticKee
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // AutomaticKeepAliveClientMixin 필수
-
     if (widget.embedded) {
       return _buildEmbeddedContent();
     }
