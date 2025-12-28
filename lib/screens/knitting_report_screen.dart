@@ -30,6 +30,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   double _floatingPlayerScale = 1.0; // 크기 배율 (1.0 ~ 1.5)
   double _baseFloatingPlayerWidth = 200.0; // 기본 크기
   double _scaleStart = 1.0; // 스케일 시작 시 저장
+  Offset _lastFocalPoint = Offset.zero; // 마지막 focal point
 
   // Liquid Glass 색상 정의
   static const Color _glassBackground = Color(0xFFF1F0EF);
@@ -367,27 +368,30 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
           });
           _pageController.jumpToPage(1);
         },
-        onPanUpdate: (details) {
-          // 드래그하여 위치 이동
-          setState(() {
-            // X축은 right 기준이므로 반대로
-            _floatingPlayerX -= details.delta.dx;
-            // Y축은 bottom 기준이므로 반대로
-            _floatingPlayerY -= details.delta.dy;
-
-            // 화면 밖으로 나가지 않도록 제한 (동적 크기 반영)
-            _floatingPlayerX = _floatingPlayerX.clamp(0.0, MediaQuery.of(context).size.width - currentWidth - 16);
-            _floatingPlayerY = _floatingPlayerY.clamp(0.0, MediaQuery.of(context).size.height - currentHeight - 16);
-          });
-        },
         onScaleStart: (details) {
-          // 스케일 시작 시 현재 스케일 저장
+          // 스케일/드래그 시작 시 초기값 저장
           _scaleStart = _floatingPlayerScale;
+          _lastFocalPoint = details.focalPoint;
         },
         onScaleUpdate: (details) {
-          // 핀치 줌으로 크기 조절 (1.0 ~ 1.5배)
           setState(() {
+            // 핀치 줌으로 크기 조절 (1.0 ~ 1.5배)
             _floatingPlayerScale = (_scaleStart * details.scale).clamp(1.0, 1.5);
+
+            // 드래그로 위치 이동 (focalPointDelta 사용)
+            final delta = details.focalPoint - _lastFocalPoint;
+            _lastFocalPoint = details.focalPoint;
+
+            // X축은 right 기준이므로 반대로
+            _floatingPlayerX -= delta.dx;
+            // Y축은 bottom 기준이므로 반대로
+            _floatingPlayerY -= delta.dy;
+
+            // 화면 밖으로 나가지 않도록 제한 (동적 크기 반영)
+            final currentWidthNow = _baseFloatingPlayerWidth * _floatingPlayerScale;
+            final currentHeightNow = currentWidthNow * 9 / 16 + 40;
+            _floatingPlayerX = _floatingPlayerX.clamp(0.0, MediaQuery.of(context).size.width - currentWidthNow - 16);
+            _floatingPlayerY = _floatingPlayerY.clamp(0.0, MediaQuery.of(context).size.height - currentHeightNow - 16);
           });
         },
         child: ClipRRect(
