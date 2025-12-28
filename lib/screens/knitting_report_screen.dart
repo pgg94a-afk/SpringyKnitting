@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
@@ -481,54 +482,113 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       children: [
         // 상단 컨트롤
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withOpacity(0.9),
             border: Border(
               bottom: BorderSide(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.grey.withOpacity(0.3),
                 width: 1,
               ),
             ),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Text(
-                '현재: ${_currentTraceRow + 1}행 ${_currentTraceCol + 1}열',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
+              Row(
+                children: [
+                  Text(
+                    '${_currentTraceRow + 1}행 ${_currentTraceCol + 1}열',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const Spacer(),
+                  // X영역 선택 모드 토글 (강조)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _isSelectingExcluded
+                          ? Colors.red.withOpacity(0.1)
+                          : Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _isSelectingExcluded ? Colors.red : Colors.orange,
+                        width: 2,
+                      ),
+                    ),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _isSelectingExcluded = !_isSelectingExcluded;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isSelectingExcluded ? Icons.close : Icons.block,
+                              color: _isSelectingExcluded ? Colors.red : Colors.orange,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _isSelectingExcluded ? 'X선택 종료' : 'X영역 선택',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: _isSelectingExcluded ? Colors.red : Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 초기화 버튼
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 22),
+                    onPressed: () {
+                      setState(() {
+                        _isGridConfigured = false;
+                        _excludedCells.clear();
+                        _currentTraceRow = 0;
+                        _currentTraceCol = 0;
+                        _transformationController.value = Matrix4.identity();
+                      });
+                    },
+                    tooltip: '처음부터',
+                  ),
+                ],
+              ),
+              if (_isSelectingExcluded)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.touch_app, size: 16, color: Colors.red),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '터치 또는 드래그로 X영역 선택/해제',
+                            style: TextStyle(fontSize: 11, color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const Spacer(),
-              // X영역 선택 모드 토글
-              IconButton(
-                icon: Icon(
-                  _isSelectingExcluded ? Icons.close : Icons.block,
-                  color: _isSelectingExcluded ? Colors.red : Colors.black54,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _isSelectingExcluded = !_isSelectingExcluded;
-                  });
-                },
-                tooltip: _isSelectingExcluded ? 'X영역 선택 모드 종료' : 'X영역 선택',
-              ),
-              // 초기화 버튼
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  setState(() {
-                    _isGridConfigured = false;
-                    _excludedCells.clear();
-                    _currentTraceRow = 0;
-                    _currentTraceCol = 0;
-                    _transformationController.value = Matrix4.identity();
-                  });
-                },
-                tooltip: '처음부터 다시 시작',
-              ),
             ],
           ),
         ),
@@ -599,16 +659,19 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     // 화면 크기에 맞춰 셀 크기 계산
     final screenSize = MediaQuery.of(context).size;
     final availableWidth = screenSize.width - 32;
-    final availableHeight = screenSize.height - 250; // 상단 컨트롤 + 하단 키패드 공간
+    final availableHeight = screenSize.height - 350; // 상단 컨트롤 + 하단 키패드 공간
 
     final cellSizeByWidth = availableWidth / _gridCols;
     final cellSizeByHeight = availableHeight / _gridRows;
-    final baseCellSize = (cellSizeByWidth < cellSizeByHeight ? cellSizeByWidth : cellSizeByHeight).clamp(8.0, 50.0);
+    final baseCellSize = (cellSizeByWidth < cellSizeByHeight ? cellSizeByWidth : cellSizeByHeight).clamp(10.0, 60.0);
 
     final gridWidth = _gridCols * baseCellSize;
     final gridHeight = _gridRows * baseCellSize;
 
     return GestureDetector(
+      onTapDown: _isSelectingExcluded ? (details) {
+        _handleGridTap(details, baseCellSize, gridWidth, gridHeight);
+      } : null,
       onPanStart: _isSelectingExcluded ? (details) {
         _handleGridPanStart(details, baseCellSize, gridWidth, gridHeight);
       } : null,
@@ -648,16 +711,54 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     );
   }
 
-  void _handleGridPanStart(DragStartDetails details, double cellSize, double gridWidth, double gridHeight) {
+  void _handleGridTap(TapDownDetails details, double cellSize, double gridWidth, double gridHeight) {
+    final matrix = _transformationController.value;
+    final inverseMatrix = Matrix4.inverted(matrix);
+
     final RenderBox? box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
 
     final localPos = box.globalToLocal(details.globalPosition);
+
+    // InteractiveViewer의 변환 적용
+    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, localPos);
+
     final centerX = box.size.width / 2;
     final centerY = box.size.height / 2;
 
-    final gridX = localPos.dx - centerX + gridWidth / 2;
-    final gridY = localPos.dy - centerY + gridHeight / 2;
+    final gridX = transformedPos.dx - centerX + gridWidth / 2;
+    final gridY = transformedPos.dy - centerY + gridHeight / 2;
+
+    if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
+      final col = (gridX / cellSize).floor().clamp(0, _gridCols - 1);
+      final row = (_gridRows - 1 - (gridY / cellSize).floor()).clamp(0, _gridRows - 1);
+
+      setState(() {
+        final key = '$row,$col';
+        if (_excludedCells.contains(key)) {
+          _excludedCells.remove(key);
+        } else {
+          _excludedCells.add(key);
+        }
+      });
+    }
+  }
+
+  void _handleGridPanStart(DragStartDetails details, double cellSize, double gridWidth, double gridHeight) {
+    final matrix = _transformationController.value;
+    final inverseMatrix = Matrix4.inverted(matrix);
+
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final localPos = box.globalToLocal(details.globalPosition);
+    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, localPos);
+
+    final centerX = box.size.width / 2;
+    final centerY = box.size.height / 2;
+
+    final gridX = transformedPos.dx - centerX + gridWidth / 2;
+    final gridY = transformedPos.dy - centerY + gridHeight / 2;
 
     if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       setState(() {
@@ -672,15 +773,20 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   void _handleGridPanUpdate(DragUpdateDetails details, double cellSize, double gridWidth, double gridHeight) {
     if (_dragStartRow == null || _dragStartCol == null) return;
 
+    final matrix = _transformationController.value;
+    final inverseMatrix = Matrix4.inverted(matrix);
+
     final RenderBox? box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
 
     final localPos = box.globalToLocal(details.globalPosition);
+    final transformedPos = MatrixUtils.transformPoint(inverseMatrix, localPos);
+
     final centerX = box.size.width / 2;
     final centerY = box.size.height / 2;
 
-    final gridX = localPos.dx - centerX + gridWidth / 2;
-    final gridY = localPos.dy - centerY + gridHeight / 2;
+    final gridX = transformedPos.dx - centerX + gridWidth / 2;
+    final gridY = transformedPos.dy - centerY + gridHeight / 2;
 
     if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       setState(() {
@@ -782,27 +888,32 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   void _moveToPreviousTraceCell() {
+    if (_currentTraceRow == 0 && _currentTraceCol == _gridCols - 1) {
+      // 시작 위치면 더 이상 뒤로 갈 수 없음
+      return;
+    }
+
     int attempts = 0;
     do {
       if (_currentTraceRow % 2 == 0) {
-        // 홀수번째 줄: 왼쪽 → 오른쪽 (역방향)
+        // 0행 (짝수): 정방향은 오른쪽 → 왼쪽이므로, 역방향은 왼쪽 ← 오른쪽 (증가)
         if (_currentTraceCol < _gridCols - 1) {
           _currentTraceCol++;
         } else if (_currentTraceRow > 0) {
+          // 이전 행으로
           _currentTraceRow--;
-          _currentTraceCol = 0;
+          _currentTraceCol = _gridCols - 1; // 1행(홀수)의 끝은 오른쪽
         } else {
-          break;
+          break; // 0행의 끝이면 멈춤
         }
       } else {
-        // 짝수번째 줄: 오른쪽 → 왼쪽 (역방향)
+        // 1행 (홀수): 정방향은 왼쪽 → 오른쪽이므로, 역방향은 오른쪽 ← 왼쪽 (감소)
         if (_currentTraceCol > 0) {
           _currentTraceCol--;
-        } else if (_currentTraceRow > 0) {
-          _currentTraceRow--;
-          _currentTraceCol = _gridCols - 1;
         } else {
-          break;
+          // 이전 행으로
+          _currentTraceRow--;
+          _currentTraceCol = 0; // 0행(짝수)의 끝은 왼쪽
         }
       }
 
