@@ -813,28 +813,6 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     } while (attempts < _gridRows * _gridCols); // 무한 루프 방지
   }
 
-                colsController.dispose();
-                Navigator.of(context).pop();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('1~200 사이의 값을 입력해주세요'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _selectedAccent,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('적용'),
-          ),
-        ],
-      ),
-    );
-  }
-
   // Video Player 표시 여부 확인
   bool _shouldShowVideoPlayer() {
     final youtubeState = _youtubeScreenKey.currentState;
