@@ -847,15 +847,11 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     // 평균 밝기 계산
     final avgBrightness = brightness.values.reduce((a, b) => a + b) / brightness.length;
 
-    // 표준편차 계산
-    double variance = 0;
-    for (final value in brightness.values) {
-      variance += (value - avgBrightness) * (value - avgBrightness);
-    }
-    final stdDev = variance > 0 ? (variance / brightness.length).abs() : 1.0;
+    // 최소값 찾기 (가장 어두운 부분)
+    final minBrightness = brightness.values.reduce((a, b) => a < b ? a : b);
 
-    // 임계값을 낮춰서 더 많은 어두운 선을 찾음
-    final threshold = avgBrightness - (stdDev * 0.3);
+    // 임계값: 평균과 최소값의 중간
+    final threshold = (avgBrightness + minBrightness) / 2;
 
     // 어두운 선 찾기
     final darkLines = <int>[];
@@ -869,33 +865,28 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
     // 가까운 선들을 그룹화 (연속된 어두운 픽셀은 하나의 선)
     final groupedLines = <int>[];
-    int? lastLine;
+    int currentGroupStart = darkLines[0];
+    int currentGroupEnd = darkLines[0];
 
-    for (final line in darkLines) {
-      if (lastLine == null || line - lastLine > 2) {
-        groupedLines.add(line);
-      }
-      lastLine = line;
-    }
-
-    if (groupedLines.length < 2) return groupedLines;
-
-    // 가장 작은 간격 찾기 (격자선 간격)
-    int minInterval = double.maxFinite.toInt();
-    for (int i = 1; i < groupedLines.length; i++) {
-      final interval = groupedLines[i] - groupedLines[i - 1];
-      if (interval > 5 && interval < minInterval) {
-        minInterval = interval;
+    for (int i = 1; i < darkLines.length; i++) {
+      if (darkLines[i] - currentGroupEnd <= 3) {
+        // 연속된 픽셀, 그룹에 포함
+        currentGroupEnd = darkLines[i];
+      } else {
+        // 새로운 그룹 시작
+        // 현재 그룹의 중간점을 추가
+        groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
+        currentGroupStart = darkLines[i];
+        currentGroupEnd = darkLines[i];
       }
     }
+    // 마지막 그룹 추가
+    groupedLines.add((currentGroupStart + currentGroupEnd) ~/ 2);
 
-    // 최소 간격을 기준으로 균등한 격자선 추출
+    // 간격이 너무 작은 선들 제거 (최소 3픽셀 이상)
     final filteredLines = <int>[groupedLines[0]];
     for (int i = 1; i < groupedLines.length; i++) {
-      final interval = groupedLines[i] - filteredLines.last;
-      // 최소 간격의 배수인지 확인 (허용 오차 10%)
-      final ratio = interval / minInterval;
-      if ((ratio - ratio.round()).abs() < 0.1) {
+      if (groupedLines[i] - filteredLines.last >= 3) {
         filteredLines.add(groupedLines[i]);
       }
     }
