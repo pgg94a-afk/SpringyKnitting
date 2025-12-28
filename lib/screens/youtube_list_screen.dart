@@ -6,11 +6,13 @@ import '../models/youtube_video.dart';
 class YoutubeListScreen extends StatefulWidget {
   final bool embedded;
   final VoidCallback? onVideoStateChanged; // 영상 상태 변경 시 콜백
+  final bool isPlayerVisible; // 영상 탭에서 player가 보이는지 여부
 
   const YoutubeListScreen({
     super.key,
     this.embedded = false,
     this.onVideoStateChanged,
+    this.isPlayerVisible = false,
   });
 
   @override
@@ -245,6 +247,8 @@ class YoutubeListScreenState extends State<YoutubeListScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Player가 표시될 때 공간 확보 (player는 KnittingReportScreen에서 렌더링)
+        if (widget.isPlayerVisible) const SizedBox(height: 240),
         // Player는 KnittingReportScreen에서 관리 (중복 렌더링 방지)
         Expanded(
           child: _videos.isEmpty

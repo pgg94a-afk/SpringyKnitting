@@ -215,9 +215,15 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   }
 
   Widget _buildVideoTab() {
+    final youtubeState = _youtubeScreenKey.currentState;
+    final isPlayerVisible = _currentNavIndex == 1 &&
+                           youtubeState?.currentVideo != null &&
+                           youtubeState?.playerController != null;
+
     return YoutubeListScreen(
       key: _youtubeScreenKey,
       embedded: true,
+      isPlayerVisible: isPlayerVisible,
       onVideoStateChanged: () {
         // 영상 상태가 변경되면 KnittingReportScreen rebuild
         setState(() {});
