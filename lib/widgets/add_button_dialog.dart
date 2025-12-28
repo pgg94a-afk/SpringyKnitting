@@ -261,7 +261,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                         color: contrastColor,
                       ),
                       decoration: InputDecoration(
-                        hintText: '약자',
+                        hintText: '???',
                         hintStyle: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -289,7 +289,7 @@ class _AddButtonDialogState extends State<AddButtonDialog> {
                         color: contrastColor
                       ),
                       decoration: InputDecoration(
-                        hintText: '한글명',
+                        hintText: '입력해주세요',
                         hintStyle: TextStyle(
                           fontSize: 14,
                           color: contrastColor
