@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../models/stitch.dart';
 import '../models/custom_button.dart';
+import '../models/youtube_video.dart';
 import '../widgets/stitch_pad.dart';
 import '../widgets/add_button_dialog.dart';
 import 'youtube_list_screen.dart';
