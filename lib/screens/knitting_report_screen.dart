@@ -591,7 +591,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '탭: X 추가/제거 / 드래그: 범위 지정',
+                            '탭: X 추가 / 드래그: 범위 X 추가',
                             style: TextStyle(fontSize: 11, color: Colors.red),
                           ),
                         ),
@@ -743,11 +743,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
       setState(() {
         final key = '$row,$col';
-        if (_excludedCells.contains(key)) {
-          _excludedCells.remove(key);
-        } else {
-          _excludedCells.add(key);
-        }
+        _excludedCells.add(key); // 항상 X 추가만
       });
     }
   }
@@ -794,7 +790,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     if (_dragStartRow == null || _dragStartCol == null || _dragEndRow == null || _dragEndCol == null) return;
 
     setState(() {
-      // 범위 토글
+      // 범위 X 추가
       final minRow = _dragStartRow! < _dragEndRow! ? _dragStartRow! : _dragEndRow!;
       final maxRow = _dragStartRow! > _dragEndRow! ? _dragStartRow! : _dragEndRow!;
       final minCol = _dragStartCol! < _dragEndCol! ? _dragStartCol! : _dragEndCol!;
@@ -803,11 +799,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       for (int row = minRow; row <= maxRow; row++) {
         for (int col = minCol; col <= maxCol; col++) {
           final key = '$row,$col';
-          if (_excludedCells.contains(key)) {
-            _excludedCells.remove(key);
-          } else {
-            _excludedCells.add(key);
-          }
+          _excludedCells.add(key); // 항상 X 추가만
         }
       }
 
