@@ -16,7 +16,8 @@ class PatternPdfScreen extends StatefulWidget {
 
 class PatternPdfScreenState extends State<PatternPdfScreen>
     with AutomaticKeepAliveClientMixin {
-  PdfControllerPinch? _pdfController;
+  PdfDocument? _pdfDocument;
+  PdfPageImage? _currentPageImage;
   String? _pdfPath;
   String? _pdfName;
   bool _isLoading = false;
@@ -38,13 +39,17 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   int _pointerCount = 0;
   bool _isDrawing = false;
 
+  // InteractiveViewer 컨트롤러
+  final TransformationController _transformationController = TransformationController();
+
   // 디자인 색상
   static const Color _glassBackground = Color(0xFFF1F0EF);
   static const Color _accentColor = Color(0xFF6B7280);
 
   @override
   void dispose() {
-    _pdfController?.dispose();
+    _transformationController.dispose();
+    _pdfDocument?.close();
     super.dispose();
   }
 
@@ -61,17 +66,22 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
           _pdfPath = result.files.single.path;
           _pdfName = result.files.single.name;
           _pageDrawings.clear();
+          _currentPage = 1;
         });
 
+        _pdfDocument?.close();
         final document = await PdfDocument.openFile(_pdfPath!);
 
         setState(() {
+          _pdfDocument = document;
           _totalPages = document.pagesCount;
-          _pdfController?.dispose();
-          _pdfController = PdfControllerPinch(
-            document: Future.value(document),
-          );
+        });
+
+        await _loadPage(_currentPage);
+
+        setState(() {
           _isLoading = false;
+          _transformationController.value = Matrix4.identity();
         });
       }
     } catch (e) {
@@ -82,6 +92,33 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
         );
       }
     }
+  }
+
+  Future<void> _loadPage(int pageNumber) async {
+    if (_pdfDocument == null) return;
+
+    final page = await _pdfDocument!.getPage(pageNumber);
+    final pageImage = await page.render(
+      width: page.width * 2,
+      height: page.height * 2,
+      format: PdfPageImageFormat.png,
+    );
+    await page.close();
+
+    if (mounted) {
+      setState(() {
+        _currentPageImage = pageImage;
+      });
+    }
+  }
+
+  void _goToPage(int page) async {
+    if (page < 1 || page > _totalPages) return;
+    setState(() {
+      _currentPage = page;
+      _transformationController.value = Matrix4.identity();
+    });
+    await _loadPage(page);
   }
 
   void _toggleDrawingMode() {
@@ -215,7 +252,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   }
 
   Widget _buildContent() {
-    if (_pdfController == null) {
+    if (_pdfDocument == null) {
       return _buildEmptyState();
     }
 
@@ -363,141 +400,154 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   }
 
   Widget _buildPdfViewer() {
-    return Listener(
-      // 최상위에서 포인터 카운트 추적
-      onPointerDown: (_) {
-        _pointerCount++;
-        // 두 손가락 이상이면 진행 중인 드로잉 취소
-        if (_pointerCount > 1 && _isDrawing) {
-          setState(() {
-            if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
-              _pageDrawings[_currentPage]!.removeLast();
-            }
-            _isDrawing = false;
-          });
-        }
-      },
-      onPointerUp: (_) {
-        _pointerCount--;
-        if (_pointerCount < 0) _pointerCount = 0;
-        if (_pointerCount == 0) _isDrawing = false;
-      },
-      onPointerCancel: (_) {
-        _pointerCount--;
-        if (_pointerCount < 0) _pointerCount = 0;
-        if (_pointerCount == 0) _isDrawing = false;
-      },
-      behavior: HitTestBehavior.translucent,
-      child: PdfViewPinch(
-        controller: _pdfController!,
-        onPageChanged: (page) {
-          setState(() => _currentPage = page);
-        },
-        builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
-          options: const DefaultBuilderOptions(),
-          documentLoaderBuilder: (_) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-          pageLoaderBuilder: (_) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-          errorBuilder: (_, error) => Center(
-            child: Text('오류: $error'),
-          ),
-          // 페이지 빌더: PDF 페이지 위에 드로잉 오버레이 추가
-          pageBuilder: (context, pageImage, pageNumber, document) {
-            return Stack(
-              children: [
-                // PDF 페이지 이미지
-                Image.memory(
-                  pageImage.bytes,
-                  fit: BoxFit.contain,
-                  width: pageImage.width.toDouble(),
-                  height: pageImage.height.toDouble(),
-                ),
-                // 드로잉 표시 레이어 (페이지와 함께 변환됨)
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: HighlightPainter(
-                      strokes: _pageDrawings[pageNumber] ?? [],
-                      pageSize: Size(
-                        pageImage.width.toDouble(),
-                        pageImage.height.toDouble(),
+    if (_currentPageImage == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final pageImage = _currentPageImage!;
+    final pageSize = Size(
+      pageImage.width.toDouble(),
+      pageImage.height.toDouble(),
+    );
+
+    return Column(
+      children: [
+        // 페이지 네비게이션
+        if (_totalPages > 1) _buildPageNavigation(),
+        // PDF 뷰어
+        Expanded(
+          child: Listener(
+            onPointerDown: (_) {
+              _pointerCount++;
+              if (_pointerCount > 1 && _isDrawing) {
+                setState(() {
+                  if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
+                    _pageDrawings[_currentPage]!.removeLast();
+                  }
+                  _isDrawing = false;
+                });
+              }
+            },
+            onPointerUp: (_) {
+              _pointerCount--;
+              if (_pointerCount < 0) _pointerCount = 0;
+              if (_pointerCount == 0) _isDrawing = false;
+            },
+            onPointerCancel: (_) {
+              _pointerCount--;
+              if (_pointerCount < 0) _pointerCount = 0;
+              if (_pointerCount == 0) _isDrawing = false;
+            },
+            behavior: HitTestBehavior.translucent,
+            child: InteractiveViewer(
+              transformationController: _transformationController,
+              minScale: 0.5,
+              maxScale: 4.0,
+              // 형광펜 모드일 때는 한 손가락 팬 비활성화
+              panEnabled: !_isDrawingMode,
+              child: Center(
+                child: Stack(
+                  children: [
+                    // PDF 페이지 이미지
+                    Image.memory(
+                      pageImage.bytes,
+                      fit: BoxFit.contain,
+                    ),
+                    // 드로잉 표시 레이어
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: HighlightPainter(
+                          strokes: _pageDrawings[_currentPage] ?? [],
+                          pageSize: pageSize,
+                        ),
                       ),
                     ),
-                    size: Size(
-                      pageImage.width.toDouble(),
-                      pageImage.height.toDouble(),
-                    ),
-                  ),
-                ),
-                // 드로잉 입력 레이어 (형광펜 모드일 때만)
-                if (_isDrawingMode && pageNumber == _currentPage)
-                  Positioned.fill(
-                    child: _buildDrawingInputLayer(
-                      Size(
-                        pageImage.width.toDouble(),
-                        pageImage.height.toDouble(),
+                    // 드로잉 입력 레이어
+                    if (_isDrawingMode)
+                      Positioned.fill(
+                        child: _buildDrawingInputLayer(pageSize),
                       ),
-                    ),
-                  ),
-              ],
-            );
-          },
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildPageNavigation() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: _currentPage > 1 ? () => _goToPage(_currentPage - 1) : null,
+            icon: const Icon(Icons.chevron_left),
+            color: _accentColor,
+          ),
+          Text(
+            '$_currentPage / $_totalPages',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: _accentColor,
+            ),
+          ),
+          IconButton(
+            onPressed: _currentPage < _totalPages ? () => _goToPage(_currentPage + 1) : null,
+            icon: const Icon(Icons.chevron_right),
+            color: _accentColor,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDrawingInputLayer(Size pageSize) {
-    return Listener(
-      onPointerMove: (event) {
-        // 한 손가락이고 드로잉 중일 때만 포인트 추가
+    return GestureDetector(
+      onPanStart: (details) {
+        if (_pointerCount == 1) {
+          setState(() {
+            _isDrawing = true;
+            _pageDrawings.putIfAbsent(_currentPage, () => []);
+            final normalizedPoint = Offset(
+              details.localPosition.dx / pageSize.width,
+              details.localPosition.dy / pageSize.height,
+            );
+            _pageDrawings[_currentPage]!.add(
+              DrawingStroke(
+                color: _highlightColor,
+                strokeWidth: _strokeWidth / pageSize.width * 100,
+                points: [normalizedPoint],
+              ),
+            );
+          });
+        }
+      },
+      onPanUpdate: (details) {
         if (_pointerCount == 1 && _isDrawing) {
           setState(() {
             if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
-              // 정규화된 좌표로 저장 (0~1 범위)
               final normalizedPoint = Offset(
-                event.localPosition.dx / pageSize.width,
-                event.localPosition.dy / pageSize.height,
+                details.localPosition.dx / pageSize.width,
+                details.localPosition.dy / pageSize.height,
               );
               _pageDrawings[_currentPage]!.last.points.add(normalizedPoint);
             }
           });
         }
       },
-      behavior: HitTestBehavior.translucent,
-      child: GestureDetector(
-        onPanStart: (details) {
-          // 한 손가락일 때만 드로잉 시작
-          if (_pointerCount == 1) {
-            setState(() {
-              _isDrawing = true;
-              _pageDrawings.putIfAbsent(_currentPage, () => []);
-              // 정규화된 좌표로 저장 (0~1 범위)
-              final normalizedPoint = Offset(
-                details.localPosition.dx / pageSize.width,
-                details.localPosition.dy / pageSize.height,
-              );
-              _pageDrawings[_currentPage]!.add(
-                DrawingStroke(
-                  color: _highlightColor,
-                  strokeWidth: _strokeWidth / pageSize.width * 100, // 상대적 두께
-                  points: [normalizedPoint],
-                ),
-              );
-            });
-          }
-        },
-        onPanEnd: (_) {
-          _isDrawing = false;
-        },
-        onPanCancel: () {
-          _isDrawing = false;
-        },
-        behavior: HitTestBehavior.translucent,
-        child: const SizedBox.expand(),
-      ),
+      onPanEnd: (_) {
+        _isDrawing = false;
+      },
+      onPanCancel: () {
+        _isDrawing = false;
+      },
+      behavior: HitTestBehavior.opaque,
+      child: const SizedBox.expand(),
     );
   }
 
