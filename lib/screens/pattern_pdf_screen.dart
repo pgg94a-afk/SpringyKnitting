@@ -455,11 +455,6 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
       );
     }
 
-    final pageSize = Size(
-      pageImage.width!.toDouble(),
-      pageImage.height!.toDouble(),
-    );
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -487,31 +482,48 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
               ),
             ),
           ),
-          // PDF 페이지와 드로잉
+          // PDF 페이지와 드로잉 (InteractiveViewer로 줌 가능)
           ClipRRect(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
-            child: Stack(
-              children: [
-                // PDF 페이지 이미지
-                Image.memory(
-                  pageImage.bytes,
-                  fit: BoxFit.contain,
-                ),
-                // 드로잉 표시 레이어
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: HighlightPainter(
-                      strokes: _pageDrawings[pageNumber] ?? [],
-                      pageSize: pageSize,
-                    ),
-                  ),
-                ),
-                // 드로잉 입력 레이어
-                if (_isDrawingMode)
-                  Positioned.fill(
-                    child: _buildDrawingInputLayer(pageNumber, pageSize),
-                  ),
-              ],
+            child: InteractiveViewer(
+              minScale: 1.0,
+              maxScale: 4.0,
+              // 형광펜 모드일 때는 팬 비활성화
+              panEnabled: !_isDrawingMode,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // 실제 표시되는 크기를 기준으로 pageSize 계산
+                  final displayWidth = constraints.maxWidth;
+                  final aspectRatio = pageImage.width! / pageImage.height!;
+                  final displayHeight = displayWidth / aspectRatio;
+                  final displaySize = Size(displayWidth, displayHeight);
+
+                  return Stack(
+                    children: [
+                      // PDF 페이지 이미지
+                      Image.memory(
+                        pageImage.bytes,
+                        fit: BoxFit.contain,
+                        width: displayWidth,
+                      ),
+                      // 드로잉 표시 레이어
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: HighlightPainter(
+                            strokes: _pageDrawings[pageNumber] ?? [],
+                            pageSize: displaySize,
+                          ),
+                        ),
+                      ),
+                      // 드로잉 입력 레이어
+                      if (_isDrawingMode)
+                        Positioned.fill(
+                          child: _buildDrawingInputLayer(pageNumber, displaySize),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ],
