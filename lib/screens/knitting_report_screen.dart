@@ -54,6 +54,9 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   // X영역 (제외된 셀) 관리
   final Set<String> _excludedCells = {}; // "row,col" 형식으로 저장
 
+  // 행별 스티치 개수 제한 (행 번호 -> 스티치 개수)
+  Map<int, int> _rowStitchLimits = {};
+
   // 드래그 선택용 변수
   int? _dragStartRow;
   int? _dragStartCol;
@@ -80,6 +83,53 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       _gridRows,
       (_) => List.generate(_gridCols, (_) => null),
     );
+  }
+
+  // 행별 스티치 제한 적용 - 나머지 칸을 X 처리
+  void _applyRowStitchLimits() {
+    for (int row = 0; row < _gridRows; row++) {
+      final limit = _rowStitchLimits[row];
+      if (limit != null && limit < _gridCols) {
+        // limit 개수만큼만 유효, 나머지는 X 처리
+        // 오른쪽부터 limit개를 남기고 왼쪽을 X 처리
+        for (int col = 0; col < _gridCols - limit; col++) {
+          _excludedCells.add('$row,$col');
+        }
+      }
+    }
+  }
+
+  // 시작 위치에서 첫 번째 유효한 셀 찾기
+  void _findFirstValidCell() {
+    final startKey = '$_currentTraceRow,$_currentTraceCol';
+    if (!_excludedCells.contains(startKey)) return; // 이미 유효하면 종료
+
+    // X 영역이면 다음 유효한 셀로 이동
+    int attempts = 0;
+    while (attempts < _gridRows * _gridCols) {
+      final key = '$_currentTraceRow,$_currentTraceCol';
+      if (!_excludedCells.contains(key)) break;
+
+      // 다음 셀로 이동 (지그재그 패턴)
+      if (_currentTraceRow % 2 == 0) {
+        if (_currentTraceCol > 0) {
+          _currentTraceCol--;
+        } else {
+          _currentTraceRow++;
+          if (_currentTraceRow >= _gridRows) break;
+          _currentTraceCol = 0;
+        }
+      } else {
+        if (_currentTraceCol < _gridCols - 1) {
+          _currentTraceCol++;
+        } else {
+          _currentTraceRow++;
+          if (_currentTraceRow >= _gridRows) break;
+          _currentTraceCol = _gridCols - 1;
+        }
+      }
+      attempts++;
+    }
   }
 
   ScrollController _getScrollController(int index) {
@@ -315,7 +365,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '격자 크기를 설정하고\n따라 그리기를 시작하세요',
+              '격자 크기를 설정하고\n각 행의 스티치 개수를 입력하세요',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -354,6 +404,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                             onPressed: _gridRows > 1 ? () {
                               setState(() {
                                 _gridRows--;
+                                // 삭제된 행의 스티치 제한 제거
+                                _rowStitchLimits.remove(_gridRows);
                               });
                             } : null,
                           ),
@@ -375,6 +427,10 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                                 final rows = int.tryParse(value);
                                 if (rows != null && rows > 0 && rows <= 200) {
                                   setState(() {
+                                    // 행이 줄어들면 해당 행의 제한 제거
+                                    if (rows < _gridRows) {
+                                      _rowStitchLimits.removeWhere((key, _) => key >= rows);
+                                    }
                                     _gridRows = rows;
                                   });
                                 }
@@ -412,6 +468,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                             onPressed: _gridCols > 1 ? () {
                               setState(() {
                                 _gridCols--;
+                                // 열 개수보다 큰 스티치 제한 조정
+                                _rowStitchLimits.updateAll((key, value) => value > _gridCols ? _gridCols : value);
                               });
                             } : null,
                           ),
@@ -434,6 +492,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                                 if (cols != null && cols > 0 && cols <= 200) {
                                   setState(() {
                                     _gridCols = cols;
+                                    // 열 개수보다 큰 스티치 제한 조정
+                                    _rowStitchLimits.updateAll((key, value) => value > _gridCols ? _gridCols : value);
                                   });
                                 }
                               },
@@ -455,15 +515,183 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            // 행별 스티치 개수 설정
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _accentColor.withOpacity(0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.format_list_numbered, size: 20, color: Colors.black54),
+                      const SizedBox(width: 8),
+                      const Text(
+                        '행별 스티치 개수',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _rowStitchLimits.clear();
+                          });
+                        },
+                        icon: const Icon(Icons.clear_all, size: 18),
+                        label: const Text('초기화'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '숫자를 입력하면 나머지 칸은 자동 X처리됩니다',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // 행 리스트 (스크롤 가능)
+                  Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.3,
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _gridRows,
+                      itemBuilder: (context, index) {
+                        final rowNum = index + 1; // 1부터 시작
+                        final currentLimit = _rowStitchLimits[index];
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: currentLimit != null
+                                ? Colors.blue.withOpacity(0.1)
+                                : Colors.grey.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: currentLimit != null
+                                  ? Colors.blue.withOpacity(0.3)
+                                  : Colors.grey.withOpacity(0.2),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 50,
+                                child: Text(
+                                  '$rowNum행',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: currentLimit != null ? Colors.blue : Colors.black54,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 36,
+                                  child: TextField(
+                                    controller: TextEditingController(
+                                      text: currentLimit?.toString() ?? '',
+                                    ),
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: '$_gridCols',
+                                      hintStyle: TextStyle(
+                                        color: Colors.grey.withOpacity(0.5),
+                                        fontWeight: FontWeight.normal,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: const BorderSide(color: Colors.blue),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                    ),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        if (value.isEmpty) {
+                                          _rowStitchLimits.remove(index);
+                                        } else {
+                                          final limit = int.tryParse(value);
+                                          if (limit != null && limit > 0 && limit <= _gridCols) {
+                                            _rowStitchLimits[index] = limit;
+                                          }
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '/ $_gridCols',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              if (currentLimit != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: Icon(
+                                    Icons.check_circle,
+                                    size: 18,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
             // 시작 버튼
             ElevatedButton.icon(
               onPressed: () {
                 setState(() {
                   _isGridConfigured = true;
                   _initializeTraceGrid();
-                  // 시작 위치: 가장 우측, 가장 하단 (0,0)
+                  _excludedCells.clear();
+                  _applyRowStitchLimits(); // 스티치 제한 적용
+                  // 시작 위치: 가장 우측 하단에서 유효한 셀 찾기
                   _currentTraceRow = 0;
                   _currentTraceCol = _gridCols - 1;
+                  _findFirstValidCell();
                 });
               },
               icon: const Icon(Icons.play_arrow),
@@ -566,6 +794,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
                       setState(() {
                         _isGridConfigured = false;
                         _excludedCells.clear();
+                        _rowStitchLimits.clear();
                         _currentTraceRow = 0;
                         _currentTraceCol = 0;
                         _transformationController.value = Matrix4.identity();
