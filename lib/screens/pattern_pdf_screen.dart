@@ -478,27 +478,39 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
         if (_pointerCount == 0) _isDrawing = false;
       },
       behavior: HitTestBehavior.translucent,
-      child: InteractiveViewer(
-        transformationController: _transformationController,
-        minScale: 1.0,
-        maxScale: 4.0,
-        panEnabled: !_isDrawingMode,
-        scaleEnabled: true,
-        onInteractionEnd: (details) {
-          setState(() {
-            _currentScale = _transformationController.value.getMaxScaleOnAxis();
-          });
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return InteractiveViewer(
+            transformationController: _transformationController,
+            constrained: false,
+            minScale: 1.0,
+            maxScale: 4.0,
+            panEnabled: !_isDrawingMode,
+            scaleEnabled: true,
+            boundaryMargin: EdgeInsets.symmetric(
+              horizontal: constraints.maxWidth * 0.5,
+              vertical: constraints.maxHeight * 0.5,
+            ),
+            onInteractionEnd: (details) {
+              setState(() {
+                _currentScale = _transformationController.value.getMaxScaleOnAxis();
+              });
+            },
+            child: SizedBox(
+              width: constraints.maxWidth,
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  ...List.generate(_totalPages, (index) {
+                    final pageNumber = index + 1;
+                    return _buildPageItem(pageNumber);
+                  }),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          );
         },
-        child: ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: _totalPages,
-          physics: _isDrawingMode ? const NeverScrollableScrollPhysics() : null,
-          itemBuilder: (context, index) {
-            final pageNumber = index + 1;
-            return _buildPageItem(pageNumber);
-          },
-        ),
       ),
     );
   }
