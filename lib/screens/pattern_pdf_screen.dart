@@ -669,6 +669,11 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
 
             _toolbarPosition = Offset(newX, newY);
           });
+        } else {
+          // 펼쳐진 상태에서 드래그하면 접기
+          setState(() {
+            _isToolbarExpanded = false;
+          });
         }
       },
       child: _buildFloatingToolbar(screenWidth),
@@ -719,14 +724,13 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 접기 버튼
+                // 연필 아이콘 (탭하면 접기)
                 _buildFloatingToolButton(
-                  icon: Icons.close,
-                  isActive: false,
+                  icon: _isDrawingMode ? Icons.edit : Icons.edit_outlined,
+                  isActive: _isDrawingMode && !_isEraserMode,
                   onTap: () {
                     setState(() {
                       _isToolbarExpanded = false;
-                      _isEraserMode = false;
                     });
                   },
                 ),
