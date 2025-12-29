@@ -15,11 +15,15 @@ class PatternPdfScreen extends StatefulWidget {
   State<PatternPdfScreen> createState() => PatternPdfScreenState();
 }
 
-class PatternPdfScreenState extends State<PatternPdfScreen> {
+class PatternPdfScreenState extends State<PatternPdfScreen>
+    with AutomaticKeepAliveClientMixin {
   PdfControllerPinch? _pdfController;
   String? _pdfPath;
   String? _pdfName;
   bool _isLoading = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   // 형광펜 관련
   bool _isDrawingMode = false;
@@ -202,6 +206,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // AutomaticKeepAliveClientMixin 필수
     return widget.embedded
         ? _buildContent()
         : Scaffold(
@@ -393,23 +398,22 @@ class PatternPdfScreenState extends State<PatternPdfScreen> {
             ),
           ),
         ),
-        // 드로잉 표시 레이어 (터치 이벤트 무시)
-        if (_isDrawingMode) ...[
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: HighlightPainter(
-                  strokes: _pageDrawings[_currentPage] ?? [],
-                ),
-                size: Size.infinite,
+        // 드로잉 표시 레이어 (항상 표시, 터치 이벤트 무시)
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: HighlightPainter(
+                strokes: _pageDrawings[_currentPage] ?? [],
               ),
+              size: Size.infinite,
             ),
           ),
-          // 드로잉 입력 레이어 (한 손가락만 처리)
+        ),
+        // 드로잉 입력 레이어 (형광펜 모드일 때만)
+        if (_isDrawingMode)
           Positioned.fill(
             child: _buildDrawingInputLayer(),
           ),
-        ],
       ],
     );
   }
