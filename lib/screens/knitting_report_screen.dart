@@ -7,6 +7,7 @@ import '../models/youtube_video.dart';
 import '../widgets/stitch_pad.dart';
 import '../widgets/add_button_dialog.dart';
 import 'youtube_list_screen.dart';
+import 'pattern_pdf_screen.dart';
 
 class KnittingReportScreen extends StatefulWidget {
   const KnittingReportScreen({super.key});
@@ -231,8 +232,15 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       children: [
         _buildRecordTab(),
         _buildVideoTab(),
+        _buildPatternTab(),
       ],
     );
+  }
+
+  // ===== 도안 탭 =====
+
+  Widget _buildPatternTab() {
+    return const PatternPdfScreen(embedded: true);
   }
 
   // ===== 기록 탭 =====
@@ -681,6 +689,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     const navItems = [
       (Icons.edit_note, '기록'),
       (Icons.play_circle_outline, '영상'),
+      (Icons.auto_stories_outlined, '도안'),
     ];
 
     return ClipRRect(

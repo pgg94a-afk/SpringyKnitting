@@ -37,6 +37,9 @@ dependencies:
   youtube_player_iframe: ^5.1.2
   image_picker: ^1.0.7
   image: ^4.1.7
+  pdfx: ^2.6.0
+  file_picker: ^8.0.0+1
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:
