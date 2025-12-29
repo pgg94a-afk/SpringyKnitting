@@ -48,6 +48,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   bool _isDrawing = false;
 
   // 플로팅 툴바 관련
+  bool _isEditModeEnabled = false; // 편집 모드 (상단바 연필 버튼으로 제어)
   bool _isToolbarExpanded = false;
   bool _isEraserMode = false;
   Offset _toolbarPosition = const Offset(0, 0); // 초기 위치 (나중에 설정)
@@ -305,8 +306,8 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
                 Expanded(child: _buildPdfViewer()),
               ],
             ),
-            // 플로팅 툴바
-            if (_isToolbarPositionInitialized)
+            // 플로팅 툴바 (편집 모드 활성화 시에만 표시)
+            if (_isEditModeEnabled && _isToolbarPositionInitialized)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
@@ -401,6 +402,8 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   }
 
   Widget _buildPdfHeader() {
+    final hasDrawings = _pageDrawings[_currentPage]?.isNotEmpty ?? false;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -434,6 +437,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
             ),
           ),
           const SizedBox(width: 8),
+          // 폴더 열기 버튼
           GestureDetector(
             onTap: _pickPdf,
             child: Container(
@@ -443,6 +447,58 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.folder_open, size: 18, color: _accentColor),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 실행취소 버튼
+          GestureDetector(
+            onTap: hasDrawings ? () {
+              setState(() {
+                _pageDrawings[_currentPage]?.removeLast();
+              });
+            } : null,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: hasDrawings
+                    ? _accentColor.withOpacity(0.1)
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.undo,
+                size: 18,
+                color: hasDrawings ? _accentColor : Colors.grey.shade400,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 연필 모드 활성화/비활성화 버튼
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isEditModeEnabled = !_isEditModeEnabled;
+                if (!_isEditModeEnabled) {
+                  // 편집 모드 비활성화 시 초기화
+                  _isDrawingMode = false;
+                  _isEraserMode = false;
+                  _isToolbarExpanded = false;
+                }
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: _isEditModeEnabled
+                    ? _accentColor
+                    : _accentColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _isEditModeEnabled ? Icons.edit : Icons.edit_outlined,
+                size: 18,
+                color: _isEditModeEnabled ? Colors.white : _accentColor,
+              ),
             ),
           ),
         ],
