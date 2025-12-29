@@ -711,8 +711,11 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         final gridHeight = _gridRows * baseCellSize;
 
         return GestureDetector(
-      onPanStart: _isSelectingExcluded ? (details) {
-        _handleGridPanStart(details, baseCellSize, gridWidth, gridHeight);
+      onTapDown: _isSelectingExcluded ? (details) {
+        _handleGridTapDown(details, baseCellSize, gridWidth, gridHeight);
+      } : null,
+      onTapUp: _isSelectingExcluded ? (_) {
+        _handleGridTapUp();
       } : null,
       onPanUpdate: _isSelectingExcluded ? (details) {
         _handleGridPanUpdate(details, baseCellSize, gridWidth, gridHeight);
@@ -753,7 +756,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     );
   }
 
-  void _handleGridPanStart(DragStartDetails details, double cellSize, double gridWidth, double gridHeight) {
+  void _handleGridTapDown(TapDownDetails details, double cellSize, double gridWidth, double gridHeight) {
     final RenderBox? gridBox = _gridPaintKey.currentContext?.findRenderObject() as RenderBox?;
     if (gridBox == null) return;
 
@@ -764,10 +767,32 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
     if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       setState(() {
+        // 터치 시작 즉시 시작점과 끝점 기록
         _dragStartCol = (gridX / cellSize).floor().clamp(0, _gridCols - 1);
         _dragStartRow = (_gridRows - 1 - (gridY / cellSize).floor()).clamp(0, _gridRows - 1);
         _dragEndCol = _dragStartCol;
         _dragEndRow = _dragStartRow;
+      });
+    }
+  }
+
+  void _handleGridTapUp() {
+    if (_dragStartRow == null || _dragStartCol == null || _dragEndRow == null || _dragEndCol == null) return;
+
+    // 탭만 한 경우 (시작점 = 끝점)
+    final isSingleTap = _dragStartRow == _dragEndRow && _dragStartCol == _dragEndCol;
+
+    if (isSingleTap) {
+      setState(() {
+        // 단일 셀 X 추가
+        final key = '$_dragStartRow,$_dragStartCol';
+        _excludedCells.add(key);
+
+        // 초기화
+        _dragStartRow = null;
+        _dragStartCol = null;
+        _dragEndRow = null;
+        _dragEndCol = null;
       });
     }
   }
@@ -795,28 +820,20 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     if (_dragStartRow == null || _dragStartCol == null || _dragEndRow == null || _dragEndCol == null) return;
 
     setState(() {
-      // 단일 탭인지 드래그인지 확인
-      final isSingleTap = _dragStartRow == _dragEndRow && _dragStartCol == _dragEndCol;
+      // 드래그로 범위 X 추가
+      final minRow = _dragStartRow! < _dragEndRow! ? _dragStartRow! : _dragEndRow!;
+      final maxRow = _dragStartRow! > _dragEndRow! ? _dragStartRow! : _dragEndRow!;
+      final minCol = _dragStartCol! < _dragEndCol! ? _dragStartCol! : _dragEndCol!;
+      final maxCol = _dragStartCol! > _dragEndCol! ? _dragStartCol! : _dragEndCol!;
 
-      if (isSingleTap) {
-        // 단일 셀 X 추가
-        final key = '$_dragStartRow,$_dragStartCol';
-        _excludedCells.add(key);
-      } else {
-        // 범위 X 추가
-        final minRow = _dragStartRow! < _dragEndRow! ? _dragStartRow! : _dragEndRow!;
-        final maxRow = _dragStartRow! > _dragEndRow! ? _dragStartRow! : _dragEndRow!;
-        final minCol = _dragStartCol! < _dragEndCol! ? _dragStartCol! : _dragEndCol!;
-        final maxCol = _dragStartCol! > _dragEndCol! ? _dragStartCol! : _dragEndCol!;
-
-        for (int row = minRow; row <= maxRow; row++) {
-          for (int col = minCol; col <= maxCol; col++) {
-            final key = '$row,$col';
-            _excludedCells.add(key); // 항상 X 추가만
-          }
+      for (int row = minRow; row <= maxRow; row++) {
+        for (int col = minCol; col <= maxCol; col++) {
+          final key = '$row,$col';
+          _excludedCells.add(key); // 항상 X 추가만
         }
       }
 
+      // 초기화
       _dragStartRow = null;
       _dragStartCol = null;
       _dragEndRow = null;
