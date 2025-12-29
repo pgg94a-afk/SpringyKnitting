@@ -60,6 +60,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   int? _dragEndRow;
   int? _dragEndCol;
   bool _isSelectingExcluded = false;
+  bool _isPanning = false; // 드래그 중인지 추적
 
   // 격자 보기 관련
   final TransformationController _transformationController = TransformationController();
@@ -717,6 +718,13 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       onTapUp: _isSelectingExcluded ? (_) {
         _handleGridTapUp();
       } : null,
+      onTapCancel: _isSelectingExcluded ? () {
+        // 탭이 취소되면 (드래그로 전환됨) 플래그만 업데이트
+        _isPanning = true;
+      } : null,
+      onPanStart: _isSelectingExcluded ? (details) {
+        _isPanning = true;
+      } : null,
       onPanUpdate: _isSelectingExcluded ? (details) {
         _handleGridPanUpdate(details, baseCellSize, gridWidth, gridHeight);
       } : null,
@@ -767,6 +775,9 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
     if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       setState(() {
+        // 플래그 초기화
+        _isPanning = false;
+
         // 터치 시작 즉시 시작점과 끝점 기록
         _dragStartCol = (gridX / cellSize).floor().clamp(0, _gridCols - 1);
         _dragStartRow = (_gridRows - 1 - (gridY / cellSize).floor()).clamp(0, _gridRows - 1);
@@ -779,10 +790,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
   void _handleGridTapUp() {
     if (_dragStartRow == null || _dragStartCol == null || _dragEndRow == null || _dragEndCol == null) return;
 
-    // 탭만 한 경우 (시작점 = 끝점)
-    final isSingleTap = _dragStartRow == _dragEndRow && _dragStartCol == _dragEndCol;
-
-    if (isSingleTap) {
+    // 드래그가 아니었을 때만 처리
+    if (!_isPanning) {
       setState(() {
         // 단일 셀 X 추가
         final key = '$_dragStartRow,$_dragStartCol';
@@ -793,6 +802,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         _dragStartCol = null;
         _dragEndRow = null;
         _dragEndCol = null;
+        _isPanning = false;
       });
     }
   }
@@ -838,6 +848,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
       _dragStartCol = null;
       _dragEndRow = null;
       _dragEndCol = null;
+      _isPanning = false;
     });
   }
 
