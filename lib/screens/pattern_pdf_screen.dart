@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:file_picker/file_picker.dart';
@@ -364,22 +363,35 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   }
 
   Widget _buildPdfViewer() {
-    return Stack(
-      children: [
-        // PDF 뷰어 (줌/스크롤 처리)
-        Listener(
-          onPointerDown: (_) => _pointerCount++,
-          onPointerUp: (_) {
-            _pointerCount--;
-            if (_pointerCount < 0) _pointerCount = 0;
+    return Listener(
+      // 최상위에서 포인터 카운트 추적
+      onPointerDown: (_) {
+        _pointerCount++;
+        // 두 손가락 이상이면 진행 중인 드로잉 취소
+        if (_pointerCount > 1 && _isDrawing) {
+          setState(() {
+            if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
+              _pageDrawings[_currentPage]!.removeLast();
+            }
             _isDrawing = false;
-          },
-          onPointerCancel: (_) {
-            _pointerCount--;
-            if (_pointerCount < 0) _pointerCount = 0;
-            _isDrawing = false;
-          },
-          child: PdfViewPinch(
+          });
+        }
+      },
+      onPointerUp: (_) {
+        _pointerCount--;
+        if (_pointerCount < 0) _pointerCount = 0;
+        if (_pointerCount == 0) _isDrawing = false;
+      },
+      onPointerCancel: (_) {
+        _pointerCount--;
+        if (_pointerCount < 0) _pointerCount = 0;
+        if (_pointerCount == 0) _isDrawing = false;
+      },
+      behavior: HitTestBehavior.translucent,
+      child: Stack(
+        children: [
+          // PDF 뷰어 (줌/스크롤 처리)
+          PdfViewPinch(
             controller: _pdfController!,
             onPageChanged: (page) {
               setState(() => _currentPage = page);
@@ -397,80 +409,66 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
               ),
             ),
           ),
-        ),
-        // 드로잉 표시 레이어 (항상 표시, 터치 이벤트 무시)
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(
-              painter: HighlightPainter(
-                strokes: _pageDrawings[_currentPage] ?? [],
+          // 드로잉 표시 레이어 (항상 표시, 터치 이벤트 무시)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: HighlightPainter(
+                  strokes: _pageDrawings[_currentPage] ?? [],
+                ),
+                size: Size.infinite,
               ),
-              size: Size.infinite,
             ),
           ),
-        ),
-        // 드로잉 입력 레이어 (형광펜 모드일 때만)
-        if (_isDrawingMode)
-          Positioned.fill(
-            child: _buildDrawingInputLayer(),
-          ),
-      ],
+          // 드로잉 입력 레이어 (형광펜 모드일 때만)
+          if (_isDrawingMode)
+            Positioned.fill(
+              child: _buildDrawingInputLayer(),
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildDrawingInputLayer() {
-    return RawGestureDetector(
-      gestures: <Type, GestureRecognizerFactory>{
-        _SingleFingerPanGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<_SingleFingerPanGestureRecognizer>(
-          () => _SingleFingerPanGestureRecognizer(
-            getPointerCount: () => _pointerCount,
-          ),
-          (_SingleFingerPanGestureRecognizer instance) {
-            instance
-              ..onStart = (details) {
-                if (_pointerCount == 1) {
-                  setState(() {
-                    _isDrawing = true;
-                    _pageDrawings.putIfAbsent(_currentPage, () => []);
-                    _pageDrawings[_currentPage]!.add(
-                      DrawingStroke(
-                        color: _highlightColor,
-                        strokeWidth: _strokeWidth,
-                        points: [details.localPosition],
-                      ),
-                    );
-                  });
-                }
-              }
-              ..onUpdate = (details) {
-                if (_pointerCount == 1 && _isDrawing) {
-                  setState(() {
-                    if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
-                      _pageDrawings[_currentPage]!.last.points.add(details.localPosition);
-                    }
-                  });
-                } else if (_pointerCount > 1 && _isDrawing) {
-                  // 두 손가락 감지: 현재 획 취소
-                  setState(() {
-                    if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
-                      _pageDrawings[_currentPage]!.removeLast();
-                    }
-                    _isDrawing = false;
-                  });
-                }
-              }
-              ..onEnd = (_) {
-                _isDrawing = false;
-              }
-              ..onCancel = () {
-                _isDrawing = false;
-              };
-          },
-        ),
+    return Listener(
+      onPointerMove: (event) {
+        // 한 손가락이고 드로잉 중일 때만 포인트 추가
+        if (_pointerCount == 1 && _isDrawing) {
+          setState(() {
+            if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
+              _pageDrawings[_currentPage]!.last.points.add(event.localPosition);
+            }
+          });
+        }
       },
       behavior: HitTestBehavior.translucent,
-      child: const SizedBox.expand(),
+      child: GestureDetector(
+        onPanStart: (details) {
+          // 한 손가락일 때만 드로잉 시작
+          if (_pointerCount == 1) {
+            setState(() {
+              _isDrawing = true;
+              _pageDrawings.putIfAbsent(_currentPage, () => []);
+              _pageDrawings[_currentPage]!.add(
+                DrawingStroke(
+                  color: _highlightColor,
+                  strokeWidth: _strokeWidth,
+                  points: [details.localPosition],
+                ),
+              );
+            });
+          }
+        },
+        onPanEnd: (_) {
+          _isDrawing = false;
+        },
+        onPanCancel: () {
+          _isDrawing = false;
+        },
+        behavior: HitTestBehavior.translucent,
+        child: const SizedBox.expand(),
+      ),
     );
   }
 
@@ -656,30 +654,5 @@ class HighlightPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant HighlightPainter oldDelegate) {
     return true;
-  }
-}
-
-// 한 손가락 팬 제스처만 인식하는 커스텀 GestureRecognizer
-class _SingleFingerPanGestureRecognizer extends PanGestureRecognizer {
-  final int Function() getPointerCount;
-
-  _SingleFingerPanGestureRecognizer({required this.getPointerCount});
-
-  @override
-  void addPointer(PointerDownEvent event) {
-    // 한 손가락일 때만 제스처 인식 시작
-    if (getPointerCount() <= 1) {
-      super.addPointer(event);
-    }
-  }
-
-  @override
-  void handleEvent(PointerEvent event) {
-    // 두 손가락 이상이면 제스처 거부
-    if (getPointerCount() > 1) {
-      resolve(GestureDisposition.rejected);
-      return;
-    }
-    super.handleEvent(event);
   }
 }
