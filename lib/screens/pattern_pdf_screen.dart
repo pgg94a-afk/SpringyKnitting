@@ -116,7 +116,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
     );
     await page.close();
 
-    if (mounted) {
+    if (mounted && pageImage != null) {
       setState(() {
         _pageImages[pageNumber] = pageImage;
       });
