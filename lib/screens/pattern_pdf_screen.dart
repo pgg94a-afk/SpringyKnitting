@@ -17,10 +17,12 @@ class PatternPdfScreen extends StatefulWidget {
 class PatternPdfScreenState extends State<PatternPdfScreen>
     with AutomaticKeepAliveClientMixin {
   PdfDocument? _pdfDocument;
-  PdfPageImage? _currentPageImage;
   String? _pdfPath;
   String? _pdfName;
   bool _isLoading = false;
+
+  // 페이지별 이미지 캐시
+  final Map<int, PdfPageImage> _pageImages = {};
 
   @override
   bool get wantKeepAlive => true;
@@ -39,8 +41,8 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   int _pointerCount = 0;
   bool _isDrawing = false;
 
-  // InteractiveViewer 컨트롤러
-  final TransformationController _transformationController = TransformationController();
+  // 스크롤 컨트롤러
+  final ScrollController _scrollController = ScrollController();
 
   // 디자인 색상
   static const Color _glassBackground = Color(0xFFF1F0EF);
@@ -48,7 +50,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
 
   @override
   void dispose() {
-    _transformationController.dispose();
+    _scrollController.dispose();
     _pdfDocument?.close();
     super.dispose();
   }
@@ -66,6 +68,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
           _pdfPath = result.files.single.path;
           _pdfName = result.files.single.name;
           _pageDrawings.clear();
+          _pageImages.clear();
           _currentPage = 1;
         });
 
@@ -77,11 +80,11 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
           _totalPages = document.pagesCount;
         });
 
-        await _loadPage(_currentPage);
+        // 모든 페이지 로드
+        await _loadAllPages();
 
         setState(() {
           _isLoading = false;
-          _transformationController.value = Matrix4.identity();
         });
       }
     } catch (e) {
@@ -94,8 +97,16 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
     }
   }
 
-  Future<void> _loadPage(int pageNumber) async {
+  Future<void> _loadAllPages() async {
     if (_pdfDocument == null) return;
+
+    for (int i = 1; i <= _totalPages; i++) {
+      await _loadPage(i);
+    }
+  }
+
+  Future<void> _loadPage(int pageNumber) async {
+    if (_pdfDocument == null || _pageImages.containsKey(pageNumber)) return;
 
     final page = await _pdfDocument!.getPage(pageNumber);
     final pageImage = await page.render(
@@ -107,18 +118,9 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
 
     if (mounted) {
       setState(() {
-        _currentPageImage = pageImage;
+        _pageImages[pageNumber] = pageImage;
       });
     }
-  }
-
-  void _goToPage(int page) async {
-    if (page < 1 || page > _totalPages) return;
-    setState(() {
-      _currentPage = page;
-      _transformationController.value = Matrix4.identity();
-    });
-    await _loadPage(page);
   }
 
   void _toggleDrawingMode() {
@@ -400,9 +402,57 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   }
 
   Widget _buildPdfViewer() {
-    final pageImage = _currentPageImage;
-    if (pageImage == null || pageImage.width == null || pageImage.height == null) {
+    if (_pageImages.isEmpty) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    return Listener(
+      onPointerDown: (_) {
+        _pointerCount++;
+        if (_pointerCount > 1 && _isDrawing) {
+          setState(() {
+            if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
+              _pageDrawings[_currentPage]!.removeLast();
+            }
+            _isDrawing = false;
+          });
+        }
+      },
+      onPointerUp: (_) {
+        _pointerCount--;
+        if (_pointerCount < 0) _pointerCount = 0;
+        if (_pointerCount == 0) _isDrawing = false;
+      },
+      onPointerCancel: (_) {
+        _pointerCount--;
+        if (_pointerCount < 0) _pointerCount = 0;
+        if (_pointerCount == 0) _isDrawing = false;
+      },
+      behavior: HitTestBehavior.translucent,
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _totalPages,
+        itemBuilder: (context, index) {
+          final pageNumber = index + 1;
+          return _buildPageItem(pageNumber);
+        },
+      ),
+    );
+  }
+
+  Widget _buildPageItem(int pageNumber) {
+    final pageImage = _pageImages[pageNumber];
+    if (pageImage == null || pageImage.width == null || pageImage.height == null) {
+      return Container(
+        height: 400,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     final pageSize = Size(
@@ -410,114 +460,78 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
       pageImage.height!.toDouble(),
     );
 
-    return Column(
-      children: [
-        // 페이지 네비게이션
-        if (_totalPages > 1) _buildPageNavigation(),
-        // PDF 뷰어
-        Expanded(
-          child: Listener(
-            onPointerDown: (_) {
-              _pointerCount++;
-              if (_pointerCount > 1 && _isDrawing) {
-                setState(() {
-                  if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
-                    _pageDrawings[_currentPage]!.removeLast();
-                  }
-                  _isDrawing = false;
-                });
-              }
-            },
-            onPointerUp: (_) {
-              _pointerCount--;
-              if (_pointerCount < 0) _pointerCount = 0;
-              if (_pointerCount == 0) _isDrawing = false;
-            },
-            onPointerCancel: (_) {
-              _pointerCount--;
-              if (_pointerCount < 0) _pointerCount = 0;
-              if (_pointerCount == 0) _isDrawing = false;
-            },
-            behavior: HitTestBehavior.translucent,
-            child: InteractiveViewer(
-              transformationController: _transformationController,
-              minScale: 0.5,
-              maxScale: 4.0,
-              // 형광펜 모드일 때는 한 손가락 팬 비활성화
-              panEnabled: !_isDrawingMode,
-              child: Center(
-                child: Stack(
-                  children: [
-                    // PDF 페이지 이미지
-                    Image.memory(
-                      pageImage.bytes,
-                      fit: BoxFit.contain,
-                    ),
-                    // 드로잉 표시 레이어
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: HighlightPainter(
-                          strokes: _pageDrawings[_currentPage] ?? [],
-                          pageSize: pageSize,
-                        ),
-                      ),
-                    ),
-                    // 드로잉 입력 레이어
-                    if (_isDrawingMode)
-                      Positioned.fill(
-                        child: _buildDrawingInputLayer(pageSize),
-                      ),
-                  ],
-                ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // 페이지 번호 표시
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              '$pageNumber / $_totalPages',
+              style: TextStyle(
+                fontSize: 12,
+                color: _accentColor,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPageNavigation() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            onPressed: _currentPage > 1 ? () => _goToPage(_currentPage - 1) : null,
-            icon: const Icon(Icons.chevron_left),
-            color: _accentColor,
-          ),
-          Text(
-            '$_currentPage / $_totalPages',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: _accentColor,
+          // PDF 페이지와 드로잉
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+            child: Stack(
+              children: [
+                // PDF 페이지 이미지
+                Image.memory(
+                  pageImage.bytes,
+                  fit: BoxFit.contain,
+                ),
+                // 드로잉 표시 레이어
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: HighlightPainter(
+                      strokes: _pageDrawings[pageNumber] ?? [],
+                      pageSize: pageSize,
+                    ),
+                  ),
+                ),
+                // 드로잉 입력 레이어
+                if (_isDrawingMode)
+                  Positioned.fill(
+                    child: _buildDrawingInputLayer(pageNumber, pageSize),
+                  ),
+              ],
             ),
-          ),
-          IconButton(
-            onPressed: _currentPage < _totalPages ? () => _goToPage(_currentPage + 1) : null,
-            icon: const Icon(Icons.chevron_right),
-            color: _accentColor,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDrawingInputLayer(Size pageSize) {
+  Widget _buildDrawingInputLayer(int pageNumber, Size pageSize) {
     return GestureDetector(
       onPanStart: (details) {
         if (_pointerCount == 1) {
           setState(() {
+            _currentPage = pageNumber;
             _isDrawing = true;
-            _pageDrawings.putIfAbsent(_currentPage, () => []);
+            _pageDrawings.putIfAbsent(pageNumber, () => []);
             final normalizedPoint = Offset(
               details.localPosition.dx / pageSize.width,
               details.localPosition.dy / pageSize.height,
             );
-            _pageDrawings[_currentPage]!.add(
+            _pageDrawings[pageNumber]!.add(
               DrawingStroke(
                 color: _highlightColor,
                 strokeWidth: _strokeWidth / pageSize.width * 100,
@@ -528,14 +542,14 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
         }
       },
       onPanUpdate: (details) {
-        if (_pointerCount == 1 && _isDrawing) {
+        if (_pointerCount == 1 && _isDrawing && _currentPage == pageNumber) {
           setState(() {
-            if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
+            if (_pageDrawings[pageNumber]?.isNotEmpty ?? false) {
               final normalizedPoint = Offset(
                 details.localPosition.dx / pageSize.width,
                 details.localPosition.dy / pageSize.height,
               );
-              _pageDrawings[_currentPage]!.last.points.add(normalizedPoint);
+              _pageDrawings[pageNumber]!.last.points.add(normalizedPoint);
             }
           });
         }
