@@ -400,14 +400,14 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   }
 
   Widget _buildPdfViewer() {
-    if (_currentPageImage == null) {
+    final pageImage = _currentPageImage;
+    if (pageImage == null || pageImage.width == null || pageImage.height == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final pageImage = _currentPageImage!;
     final pageSize = Size(
-      pageImage.width.toDouble(),
-      pageImage.height.toDouble(),
+      pageImage.width!.toDouble(),
+      pageImage.height!.toDouble(),
     );
 
     return Column(
