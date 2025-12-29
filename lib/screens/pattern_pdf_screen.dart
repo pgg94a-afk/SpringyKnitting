@@ -30,6 +30,10 @@ class PatternPdfScreenState extends State<PatternPdfScreen> {
   int _currentPage = 1;
   int _totalPages = 0;
 
+  // 멀티터치 감지용
+  int _pointerCount = 0;
+  bool _isDrawing = false;
+
   // 디자인 색상
   static const Color _glassBackground = Color(0xFFF1F0EF);
   static const Color _accentColor = Color(0xFF6B7280);
@@ -381,31 +385,67 @@ class PatternPdfScreenState extends State<PatternPdfScreen> {
 
   Widget _buildDrawingLayer() {
     return Positioned.fill(
-      child: GestureDetector(
-        onPanStart: (details) {
-          setState(() {
-            _pageDrawings.putIfAbsent(_currentPage, () => []);
-            _pageDrawings[_currentPage]!.add(
-              DrawingStroke(
-                color: _highlightColor,
-                strokeWidth: _strokeWidth,
-                points: [details.localPosition],
-              ),
-            );
-          });
+      child: Listener(
+        onPointerDown: (_) {
+          _pointerCount++;
+          // 두 손가락 이상이면 드로잉 중단 및 현재 획 제거
+          if (_pointerCount > 1 && _isDrawing) {
+            setState(() {
+              if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
+                _pageDrawings[_currentPage]!.removeLast();
+              }
+              _isDrawing = false;
+            });
+          }
         },
-        onPanUpdate: (details) {
-          setState(() {
-            if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
-              _pageDrawings[_currentPage]!.last.points.add(details.localPosition);
+        onPointerUp: (_) {
+          _pointerCount--;
+          if (_pointerCount < 0) _pointerCount = 0;
+          _isDrawing = false;
+        },
+        onPointerCancel: (_) {
+          _pointerCount--;
+          if (_pointerCount < 0) _pointerCount = 0;
+          _isDrawing = false;
+        },
+        behavior: HitTestBehavior.translucent,
+        child: GestureDetector(
+          onPanStart: (details) {
+            // 한 손가락일 때만 드로잉 시작
+            if (_pointerCount == 1) {
+              setState(() {
+                _isDrawing = true;
+                _pageDrawings.putIfAbsent(_currentPage, () => []);
+                _pageDrawings[_currentPage]!.add(
+                  DrawingStroke(
+                    color: _highlightColor,
+                    strokeWidth: _strokeWidth,
+                    points: [details.localPosition],
+                  ),
+                );
+              });
             }
-          });
-        },
-        child: CustomPaint(
-          painter: HighlightPainter(
-            strokes: _pageDrawings[_currentPage] ?? [],
+          },
+          onPanUpdate: (details) {
+            // 한 손가락이고 드로잉 중일 때만 계속
+            if (_pointerCount == 1 && _isDrawing) {
+              setState(() {
+                if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
+                  _pageDrawings[_currentPage]!.last.points.add(details.localPosition);
+                }
+              });
+            }
+          },
+          onPanEnd: (_) {
+            _isDrawing = false;
+          },
+          behavior: HitTestBehavior.translucent,
+          child: CustomPaint(
+            painter: HighlightPainter(
+              strokes: _pageDrawings[_currentPage] ?? [],
+            ),
+            size: Size.infinite,
           ),
-          size: Size.infinite,
         ),
       ),
     );
