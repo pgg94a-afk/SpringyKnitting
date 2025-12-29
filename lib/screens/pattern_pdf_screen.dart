@@ -28,10 +28,18 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   @override
   bool get wantKeepAlive => true;
 
-  // 형광펜 관련
+  // 펜/형광펜 관련
   bool _isDrawingMode = false;
-  Color _highlightColor = Colors.yellow.withOpacity(0.4);
-  double _strokeWidth = 20.0;
+  bool _isHighlighterMode = true; // true: 형광펜, false: 일반펜
+  Color _penColor = Colors.yellow; // 공용 색상 (투명도 없음)
+  double _penStrokeWidth = 3.0; // 일반펜 두께
+  double _highlighterStrokeWidth = 20.0; // 형광펜 두께
+  bool _showPenThicknessPopup = false;
+  bool _showHighlighterThicknessPopup = false;
+
+  // 두께 옵션
+  static const List<double> _penThicknessOptions = [1.0, 2.0, 3.0, 5.0, 8.0];
+  static const List<double> _highlighterThicknessOptions = [10.0, 15.0, 20.0, 30.0, 40.0];
 
   // HSV 색상 값 (색상선택 그래디언트용)
   double _hue = 60; // 노란색 기본
@@ -656,11 +664,16 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   }
 
   Widget _buildDrawingInputLayer(int pageNumber, Size pageSize) {
+    // 현재 모드에 맞는 두께 선택
+    final currentStrokeWidth = _isHighlighterMode
+        ? _highlighterStrokeWidth
+        : _penStrokeWidth;
+
     return GestureDetector(
       onPanStart: (details) {
         if (_pointerCount == 1) {
           if (_isEraserMode) {
-            // 지우개 모드: 터치한 위치의 형광펜 삭제
+            // 지우개 모드: 터치한 위치의 펜/형광펜 삭제
             _eraseStrokeAtPosition(pageNumber, details.localPosition, pageSize);
           } else {
             setState(() {
@@ -673,9 +686,10 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
               );
               _pageDrawings[pageNumber]!.add(
                 DrawingStroke(
-                  color: _highlightColor,
-                  strokeWidth: _strokeWidth / pageSize.width * 100,
+                  color: _penColor, // 투명도 없는 색상 저장
+                  strokeWidth: currentStrokeWidth / pageSize.width * 100,
                   points: [normalizedPoint],
+                  isHighlighter: _isHighlighterMode,
                 ),
               );
             });
@@ -780,8 +794,9 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   }
 
   Widget _buildFloatingToolbar(double screenWidth) {
-    final yellowColor = Colors.yellow.withOpacity(0.4);
-    final isYellowSelected = _highlightColor.value == yellowColor.value;
+    final isPenActive = _isDrawingMode && !_isHighlighterMode && !_isEraserMode;
+    final isHighlighterActive = _isDrawingMode && _isHighlighterMode && !_isEraserMode;
+    final isYellowSelected = _penColor.value == Colors.yellow.value;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -802,146 +817,204 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
         ],
       ),
       child: _isToolbarExpanded
-          ? Row(
+          ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 연필 아이콘 (탭하면 접기)
-                _buildFloatingToolButton(
-                  icon: _isDrawingMode ? Icons.edit : Icons.edit_outlined,
-                  isActive: _isDrawingMode && !_isEraserMode,
-                  onTap: () {
-                    setState(() {
-                      _isToolbarExpanded = false;
-                    });
-                  },
-                ),
-                const SizedBox(width: 8),
-                // 구분선
-                Container(
-                  width: 1,
-                  height: 28,
-                  color: Colors.grey.shade300,
-                ),
-                const SizedBox(width: 8),
-                // 노란색 형광펜
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: GestureDetector(
-                    onTap: () {
+                // 두께 팝오버 (펜)
+                if (_showPenThicknessPopup)
+                  _buildThicknessPopup(
+                    thicknesses: _penThicknessOptions,
+                    currentThickness: _penStrokeWidth,
+                    isHighlighter: false,
+                    onSelect: (thickness) {
                       setState(() {
-                        // 이미 노란색이 선택된 상태에서 다시 누르면 형광펜 모드 취소
-                        if (isYellowSelected && _isDrawingMode && !_isEraserMode) {
-                          _isDrawingMode = false;
-                        } else {
-                          _highlightColor = yellowColor;
-                          _isDrawingMode = true;
-                          _isEraserMode = false;
-                        }
+                        _penStrokeWidth = thickness;
+                        _showPenThicknessPopup = false;
+                        _isHighlighterMode = false;
+                        _isDrawingMode = true;
+                        _isEraserMode = false;
                       });
                     },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: yellowColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isYellowSelected && _isDrawingMode && !_isEraserMode
-                              ? _accentColor
-                              : Colors.grey.shade300,
-                          width: isYellowSelected && _isDrawingMode && !_isEraserMode ? 2.5 : 1.5,
-                        ),
-                      ),
-                    ),
                   ),
-                ),
-                // 색상 선택 그래디언트 버튼
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: GestureDetector(
-                    onTap: () {
-                      // 이미 커스텀 색상이 선택된 상태에서 다시 누르면 형광펜 모드 취소
-                      if (!isYellowSelected && _isDrawingMode && !_isEraserMode) {
-                        setState(() {
-                          _isDrawingMode = false;
-                        });
-                      } else {
-                        _showColorPickerPopup();
-                      }
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const SweepGradient(
-                          colors: [
-                            Color(0xFFFF0000),
-                            Color(0xFFFFFF00),
-                            Color(0xFF00FF00),
-                            Color(0xFF00FFFF),
-                            Color(0xFF0000FF),
-                            Color(0xFFFF00FF),
-                            Color(0xFFFF0000),
-                          ],
-                        ),
-                        border: Border.all(
-                          color: !isYellowSelected && _isDrawingMode && !_isEraserMode
-                              ? _accentColor
-                              : Colors.grey.shade300,
-                          width: !isYellowSelected && _isDrawingMode && !_isEraserMode ? 2.5 : 1.5,
-                        ),
-                      ),
-                      child: !isYellowSelected && _isDrawingMode && !_isEraserMode
-                          ? Center(
-                              child: Container(
-                                width: 18,
-                                height: 18,
-                                decoration: BoxDecoration(
-                                  color: _highlightColor,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
-                                ),
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                // 구분선
-                Container(
-                  width: 1,
-                  height: 28,
-                  color: Colors.grey.shade300,
-                ),
-                const SizedBox(width: 8),
-                // 실행취소
-                _buildFloatingToolButton(
-                  icon: Icons.undo,
-                  isActive: false,
-                  onTap: () {
-                    setState(() {
-                      if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
-                        _pageDrawings[_currentPage]!.removeLast();
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(width: 4),
-                // 지우개
-                _buildFloatingToolButton(
-                  icon: Icons.auto_fix_high,
-                  isActive: _isEraserMode,
-                  onTap: () {
-                    setState(() {
-                      _isEraserMode = !_isEraserMode;
-                      if (_isEraserMode) {
+                // 두께 팝오버 (형광펜)
+                if (_showHighlighterThicknessPopup)
+                  _buildThicknessPopup(
+                    thicknesses: _highlighterThicknessOptions,
+                    currentThickness: _highlighterStrokeWidth,
+                    isHighlighter: true,
+                    onSelect: (thickness) {
+                      setState(() {
+                        _highlighterStrokeWidth = thickness;
+                        _showHighlighterThicknessPopup = false;
+                        _isHighlighterMode = true;
                         _isDrawingMode = true;
-                      }
-                    });
-                  },
-                  onLongPress: () => _showEraserOptionsSheet(),
+                        _isEraserMode = false;
+                      });
+                    },
+                  ),
+                // 메인 툴바
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 일반 펜
+                    _buildPenButton(
+                      icon: Icons.edit,
+                      isActive: isPenActive,
+                      color: isPenActive ? _penColor : null,
+                      onTap: () {
+                        setState(() {
+                          if (isPenActive) {
+                            // 이미 활성화된 상태면 두께 팝업 토글
+                            _showPenThicknessPopup = !_showPenThicknessPopup;
+                            _showHighlighterThicknessPopup = false;
+                          } else {
+                            // 펜 모드 활성화
+                            _isHighlighterMode = false;
+                            _isDrawingMode = true;
+                            _isEraserMode = false;
+                            _showPenThicknessPopup = true;
+                            _showHighlighterThicknessPopup = false;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                    // 형광펜
+                    _buildPenButton(
+                      icon: Icons.brush,
+                      isActive: isHighlighterActive,
+                      color: isHighlighterActive ? _penColor.withOpacity(0.4) : null,
+                      onTap: () {
+                        setState(() {
+                          if (isHighlighterActive) {
+                            // 이미 활성화된 상태면 두께 팝업 토글
+                            _showHighlighterThicknessPopup = !_showHighlighterThicknessPopup;
+                            _showPenThicknessPopup = false;
+                          } else {
+                            // 형광펜 모드 활성화
+                            _isHighlighterMode = true;
+                            _isDrawingMode = true;
+                            _isEraserMode = false;
+                            _showHighlighterThicknessPopup = true;
+                            _showPenThicknessPopup = false;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    // 구분선
+                    Container(
+                      width: 1,
+                      height: 28,
+                      color: Colors.grey.shade300,
+                    ),
+                    const SizedBox(width: 8),
+                    // 노란색 색상
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _penColor = Colors.yellow;
+                          _showPenThicknessPopup = false;
+                          _showHighlighterThicknessPopup = false;
+                        });
+                      },
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.yellow,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isYellowSelected ? _accentColor : Colors.grey.shade300,
+                            width: isYellowSelected ? 2.5 : 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // 색상 선택 그래디언트
+                    GestureDetector(
+                      onTap: () {
+                        _showPenThicknessPopup = false;
+                        _showHighlighterThicknessPopup = false;
+                        _showColorPickerPopup();
+                      },
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const SweepGradient(
+                            colors: [
+                              Color(0xFFFF0000),
+                              Color(0xFFFFFF00),
+                              Color(0xFF00FF00),
+                              Color(0xFF00FFFF),
+                              Color(0xFF0000FF),
+                              Color(0xFFFF00FF),
+                              Color(0xFFFF0000),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: !isYellowSelected ? _accentColor : Colors.grey.shade300,
+                            width: !isYellowSelected ? 2.5 : 1.5,
+                          ),
+                        ),
+                        child: !isYellowSelected
+                            ? Center(
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: _penColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // 구분선
+                    Container(
+                      width: 1,
+                      height: 28,
+                      color: Colors.grey.shade300,
+                    ),
+                    const SizedBox(width: 8),
+                    // 실행취소
+                    _buildFloatingToolButton(
+                      icon: Icons.undo,
+                      isActive: false,
+                      onTap: () {
+                        setState(() {
+                          if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
+                            _pageDrawings[_currentPage]!.removeLast();
+                          }
+                          _showPenThicknessPopup = false;
+                          _showHighlighterThicknessPopup = false;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                    // 지우개
+                    _buildFloatingToolButton(
+                      icon: Icons.auto_fix_high,
+                      isActive: _isEraserMode,
+                      onTap: () {
+                        setState(() {
+                          _isEraserMode = !_isEraserMode;
+                          if (_isEraserMode) {
+                            _isDrawingMode = true;
+                          }
+                          _showPenThicknessPopup = false;
+                          _showHighlighterThicknessPopup = false;
+                        });
+                      },
+                      onLongPress: () => _showEraserOptionsSheet(),
+                    ),
+                  ],
                 ),
               ],
             )
@@ -952,7 +1025,11 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
                 height: _collapsedToolbarSize,
                 decoration: BoxDecoration(
                   color: _isDrawingMode
-                      ? (_isEraserMode ? Colors.red.shade100 : _highlightColor)
+                      ? (_isEraserMode
+                          ? Colors.red.shade100
+                          : (_isHighlighterMode
+                              ? _penColor.withOpacity(0.4)
+                              : _penColor))
                       : Colors.white,
                   shape: BoxShape.circle,
                   border: Border.all(
@@ -963,7 +1040,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
                 child: Icon(
                   _isEraserMode
                       ? Icons.auto_fix_high
-                      : (_isDrawingMode ? Icons.edit : Icons.edit_outlined),
+                      : (_isHighlighterMode ? Icons.brush : Icons.edit),
                   color: _isDrawingMode ? _accentColor : Colors.grey.shade500,
                   size: 24,
                 ),
@@ -972,9 +1049,98 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
     );
   }
 
+  Widget _buildPenButton({
+    required IconData icon,
+    required bool isActive,
+    Color? color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isActive
+              ? (color ?? _accentColor.withOpacity(0.15))
+              : Colors.transparent,
+          shape: BoxShape.circle,
+          border: isActive
+              ? Border.all(color: _accentColor, width: 2)
+              : null,
+        ),
+        child: Icon(
+          icon,
+          size: 22,
+          color: isActive ? _accentColor : Colors.black54,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThicknessPopup({
+    required List<double> thicknesses,
+    required double currentThickness,
+    required bool isHighlighter,
+    required Function(double) onSelect,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: thicknesses.map((thickness) {
+          final isSelected = currentThickness == thickness;
+          final displaySize = isHighlighter
+              ? (thickness / 40 * 24).clamp(8.0, 24.0)
+              : (thickness / 8 * 16).clamp(4.0, 16.0);
+
+          return GestureDetector(
+            onTap: () => onSelect(thickness),
+            child: Container(
+              width: 36,
+              height: 36,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: isSelected ? _accentColor.withOpacity(0.15) : Colors.transparent,
+                shape: BoxShape.circle,
+                border: isSelected
+                    ? Border.all(color: _accentColor, width: 2)
+                    : null,
+              ),
+              child: Center(
+                child: Container(
+                  width: displaySize,
+                  height: displaySize,
+                  decoration: BoxDecoration(
+                    color: isHighlighter
+                        ? _penColor.withOpacity(0.4)
+                        : _penColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   void _showColorPickerPopup() {
     // 현재 색상에서 HSV 값 추출
-    final hsv = HSVColor.fromColor(_highlightColor.withOpacity(1.0));
+    final hsv = HSVColor.fromColor(_penColor);
     _hue = hsv.hue;
     _saturation = hsv.saturation;
     _value = hsv.value;
@@ -987,9 +1153,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
         initialValue: _value,
         onColorSelected: (color) {
           setState(() {
-            _highlightColor = color.withOpacity(0.4);
-            _isDrawingMode = true;
-            _isEraserMode = false;
+            _penColor = color; // 투명도 없이 저장
             final hsv = HSVColor.fromColor(color);
             _hue = hsv.hue;
             _saturation = hsv.saturation;
@@ -1124,15 +1288,17 @@ class DrawingStroke {
   final Color color;
   final double strokeWidth;
   final List<Offset> points;
+  final bool isHighlighter; // true: 형광펜, false: 일반펜
 
   DrawingStroke({
     required this.color,
     required this.strokeWidth,
     required this.points,
+    this.isHighlighter = true,
   });
 }
 
-// 형광펜 페인터
+// 펜/형광펜 페인터
 class HighlightPainter extends CustomPainter {
   final List<DrawingStroke> strokes;
   final Size? pageSize;
@@ -1151,12 +1317,21 @@ class HighlightPainter extends CustomPainter {
       final actualStrokeWidth = stroke.strokeWidth * drawSize.width / 100;
 
       final paint = Paint()
-        ..color = stroke.color
         ..strokeWidth = actualStrokeWidth
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke
-        ..blendMode = BlendMode.multiply;
+        ..style = PaintingStyle.stroke;
+
+      // 펜 타입에 따라 다른 렌더링
+      if (stroke.isHighlighter) {
+        // 형광펜: 반투명 + multiply 블렌드
+        paint.color = stroke.color.withOpacity(0.4);
+        paint.blendMode = BlendMode.multiply;
+      } else {
+        // 일반펜: 불투명
+        paint.color = stroke.color;
+        paint.blendMode = BlendMode.srcOver;
+      }
 
       final path = Path();
       // 정규화된 좌표를 실제 좌표로 변환
