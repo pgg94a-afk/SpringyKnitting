@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:file_picker/file_picker.dart';
@@ -32,6 +33,11 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   Color _highlightColor = Colors.yellow.withOpacity(0.4);
   double _strokeWidth = 20.0;
 
+  // HSV 색상 값 (색상선택 그래디언트용)
+  double _hue = 60; // 노란색 기본
+  double _saturation = 1.0;
+  double _value = 1.0;
+
   // 페이지별 드로잉 데이터
   final Map<int, List<DrawingStroke>> _pageDrawings = {};
   int _currentPage = 1;
@@ -47,7 +53,11 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   Offset _toolbarPosition = const Offset(0, 0); // 초기 위치 (나중에 설정)
   bool _isToolbarPositionInitialized = false;
   static const double _collapsedToolbarSize = 56.0;
-  static const double _expandedToolbarWidth = 340.0; // 펼쳐진 툴바 너비
+  static const double _expandedToolbarWidth = 280.0; // 펼쳐진 툴바 너비 (줄임)
+
+  // 전체 줌 관련
+  final TransformationController _transformationController = TransformationController();
+  double _currentScale = 1.0;
 
   // 스크롤 컨트롤러
   final ScrollController _scrollController = ScrollController();
@@ -59,6 +69,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   @override
   void dispose() {
     _scrollController.dispose();
+    _transformationController.dispose();
     _pdfDocument?.close();
     super.dispose();
   }
@@ -467,14 +478,27 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
         if (_pointerCount == 0) _isDrawing = false;
       },
       behavior: HitTestBehavior.translucent,
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _totalPages,
-        itemBuilder: (context, index) {
-          final pageNumber = index + 1;
-          return _buildPageItem(pageNumber);
+      child: InteractiveViewer(
+        transformationController: _transformationController,
+        minScale: 1.0,
+        maxScale: 4.0,
+        panEnabled: !_isDrawingMode,
+        scaleEnabled: true,
+        onInteractionEnd: (details) {
+          setState(() {
+            _currentScale = _transformationController.value.getMaxScaleOnAxis();
+          });
         },
+        child: ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: _totalPages,
+          physics: _isDrawingMode ? const NeverScrollableScrollPhysics() : null,
+          itemBuilder: (context, index) {
+            final pageNumber = index + 1;
+            return _buildPageItem(pageNumber);
+          },
+        ),
       ),
     );
   }
@@ -520,48 +544,42 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
               ),
             ),
           ),
-          // PDF 페이지와 드로잉 (InteractiveViewer로 줌 가능)
+          // PDF 페이지와 드로잉 (줌은 상위 InteractiveViewer에서 처리)
           ClipRRect(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
-            child: InteractiveViewer(
-              minScale: 1.0,
-              maxScale: 4.0,
-              // 형광펜 모드일 때는 팬 비활성화
-              panEnabled: !_isDrawingMode,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // 실제 표시되는 크기를 기준으로 pageSize 계산
-                  final displayWidth = constraints.maxWidth;
-                  final aspectRatio = pageImage.width! / pageImage.height!;
-                  final displayHeight = displayWidth / aspectRatio;
-                  final displaySize = Size(displayWidth, displayHeight);
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // 실제 표시되는 크기를 기준으로 pageSize 계산
+                final displayWidth = constraints.maxWidth;
+                final aspectRatio = pageImage.width! / pageImage.height!;
+                final displayHeight = displayWidth / aspectRatio;
+                final displaySize = Size(displayWidth, displayHeight);
 
-                  return Stack(
-                    children: [
-                      // PDF 페이지 이미지
-                      Image.memory(
-                        pageImage.bytes,
-                        fit: BoxFit.contain,
-                        width: displayWidth,
+                return Stack(
+                  children: [
+                    // PDF 페이지 이미지
+                    Image.memory(
+                      pageImage.bytes,
+                      fit: BoxFit.contain,
+                      width: displayWidth,
+                    ),
+                    // 드로잉 표시 레이어
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: HighlightPainter(
+                          strokes: _pageDrawings[pageNumber] ?? [],
+                          pageSize: displaySize,
+                        ),
                       ),
-                      // 드로잉 표시 레이어
+                    ),
+                    // 드로잉 입력 레이어
+                    if (_isDrawingMode)
                       Positioned.fill(
-                        child: CustomPaint(
-                          painter: HighlightPainter(
-                            strokes: _pageDrawings[pageNumber] ?? [],
-                            pageSize: displaySize,
-                          ),
-                        ),
+                        child: _buildDrawingInputLayer(pageNumber, displaySize),
                       ),
-                      // 드로잉 입력 레이어
-                      if (_isDrawingMode)
-                        Positioned.fill(
-                          child: _buildDrawingInputLayer(pageNumber, displaySize),
-                        ),
-                    ],
-                  );
-                },
-              ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -694,13 +712,8 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   }
 
   Widget _buildFloatingToolbar(double screenWidth) {
-    final highlightColors = [
-      Colors.yellow.withOpacity(0.4),
-      Colors.pink.withOpacity(0.4),
-      Colors.lightBlue.withOpacity(0.4),
-      Colors.lightGreen.withOpacity(0.4),
-      Colors.orange.withOpacity(0.4),
-    ];
+    final yellowColor = Colors.yellow.withOpacity(0.4);
+    final isYellowSelected = _highlightColor.value == yellowColor.value;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -742,36 +755,91 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
                   color: Colors.grey.shade300,
                 ),
                 const SizedBox(width: 8),
-                // 형광펜 색상들
-                ...highlightColors.map((color) {
-                  final isSelected = _highlightColor.value == color.value;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _highlightColor = color;
+                // 노란색 형광펜
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        // 이미 노란색이 선택된 상태에서 다시 누르면 형광펜 모드 취소
+                        if (isYellowSelected && _isDrawingMode && !_isEraserMode) {
+                          _isDrawingMode = false;
+                        } else {
+                          _highlightColor = yellowColor;
                           _isDrawingMode = true;
                           _isEraserMode = false;
-                        });
-                      },
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected && _isDrawingMode && !_isEraserMode
-                                ? _accentColor
-                                : Colors.grey.shade300,
-                            width: isSelected && _isDrawingMode && !_isEraserMode ? 2.5 : 1.5,
-                          ),
+                        }
+                      });
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: yellowColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isYellowSelected && _isDrawingMode && !_isEraserMode
+                              ? _accentColor
+                              : Colors.grey.shade300,
+                          width: isYellowSelected && _isDrawingMode && !_isEraserMode ? 2.5 : 1.5,
                         ),
                       ),
                     ),
-                  );
-                }),
+                  ),
+                ),
+                // 색상 선택 그래디언트 버튼
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: GestureDetector(
+                    onTap: () {
+                      // 이미 커스텀 색상이 선택된 상태에서 다시 누르면 형광펜 모드 취소
+                      if (!isYellowSelected && _isDrawingMode && !_isEraserMode) {
+                        setState(() {
+                          _isDrawingMode = false;
+                        });
+                      } else {
+                        _showColorPickerPopup();
+                      }
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const SweepGradient(
+                          colors: [
+                            Color(0xFFFF0000),
+                            Color(0xFFFFFF00),
+                            Color(0xFF00FF00),
+                            Color(0xFF00FFFF),
+                            Color(0xFF0000FF),
+                            Color(0xFFFF00FF),
+                            Color(0xFFFF0000),
+                          ],
+                        ),
+                        border: Border.all(
+                          color: !isYellowSelected && _isDrawingMode && !_isEraserMode
+                              ? _accentColor
+                              : Colors.grey.shade300,
+                          width: !isYellowSelected && _isDrawingMode && !_isEraserMode ? 2.5 : 1.5,
+                        ),
+                      ),
+                      child: !isYellowSelected && _isDrawingMode && !_isEraserMode
+                          ? Center(
+                              child: Container(
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  color: _highlightColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 4),
                 // 구분선
                 Container(
@@ -833,6 +901,34 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
                 ),
               ),
             ),
+    );
+  }
+
+  void _showColorPickerPopup() {
+    // 현재 색상에서 HSV 값 추출
+    final hsv = HSVColor.fromColor(_highlightColor.withOpacity(1.0));
+    _hue = hsv.hue;
+    _saturation = hsv.saturation;
+    _value = hsv.value;
+
+    showDialog(
+      context: context,
+      builder: (context) => _ColorPickerDialog(
+        initialHue: _hue,
+        initialSaturation: _saturation,
+        initialValue: _value,
+        onColorSelected: (color) {
+          setState(() {
+            _highlightColor = color.withOpacity(0.4);
+            _isDrawingMode = true;
+            _isEraserMode = false;
+            final hsv = HSVColor.fromColor(color);
+            _hue = hsv.hue;
+            _saturation = hsv.saturation;
+            _value = hsv.value;
+          });
+        },
+      ),
     );
   }
 
@@ -1017,5 +1113,296 @@ class HighlightPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant HighlightPainter oldDelegate) {
     return true;
+  }
+}
+
+// 색상 선택 다이얼로그
+class _ColorPickerDialog extends StatefulWidget {
+  final double initialHue;
+  final double initialSaturation;
+  final double initialValue;
+  final Function(Color) onColorSelected;
+
+  const _ColorPickerDialog({
+    required this.initialHue,
+    required this.initialSaturation,
+    required this.initialValue,
+    required this.onColorSelected,
+  });
+
+  @override
+  State<_ColorPickerDialog> createState() => _ColorPickerDialogState();
+}
+
+class _ColorPickerDialogState extends State<_ColorPickerDialog> {
+  late double _hue;
+  late double _saturation;
+  late double _value;
+  late Color _selectedColor;
+
+  static const Color _accentColor = Color(0xFF6B7280);
+
+  @override
+  void initState() {
+    super.initState();
+    _hue = widget.initialHue;
+    _saturation = widget.initialSaturation;
+    _value = widget.initialValue;
+    _updateColor();
+  }
+
+  void _updateColor() {
+    _selectedColor = HSVColor.fromAHSV(1, _hue, _saturation, _value).toColor();
+  }
+
+  void _updateFromPosition(double dx, double dy, double width, double height) {
+    setState(() {
+      _saturation = (dx / width).clamp(0.0, 1.0);
+      _value = (1 - dy / height).clamp(0.0, 1.0);
+      _updateColor();
+    });
+  }
+
+  void _updateHue(double dy, double height) {
+    setState(() {
+      _hue = (dy / height * 360).clamp(0.0, 360.0);
+      _updateColor();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            width: 300,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.4),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 헤더
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '형광펜 색상',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(Icons.close, color: Colors.black54, size: 20),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // 색상 미리보기
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: _selectedColor.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 3,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _selectedColor.withOpacity(0.3),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // 색상 선택 영역
+                Row(
+                  children: [
+                    // Saturation-Value 그리드
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width = constraints.maxWidth;
+                          const height = 180.0;
+                          return GestureDetector(
+                            onPanDown: (details) {
+                              _updateFromPosition(
+                                details.localPosition.dx,
+                                details.localPosition.dy,
+                                width,
+                                height,
+                              );
+                            },
+                            onPanUpdate: (details) {
+                              _updateFromPosition(
+                                details.localPosition.dx,
+                                details.localPosition.dy,
+                                width,
+                                height,
+                              );
+                            },
+                            child: Container(
+                              height: height,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white,
+                                    HSVColor.fromAHSV(1, _hue, 1, 1).toColor(),
+                                  ],
+                                ),
+                              ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black,
+                                    ],
+                                  ),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Positioned(
+                                      left: ((_saturation * width) - 10).clamp(0.0, width - 20),
+                                      top: (((1 - _value) * height) - 10).clamp(0.0, height - 20),
+                                      child: Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: _selectedColor,
+                                          border: Border.all(color: Colors.white, width: 3),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.3),
+                                              blurRadius: 4,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Hue 바 (세로)
+                    GestureDetector(
+                      onPanDown: (details) {
+                        _updateHue(details.localPosition.dy, 180);
+                      },
+                      onPanUpdate: (details) {
+                        _updateHue(details.localPosition.dy, 180);
+                      },
+                      child: Container(
+                        width: 24,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0xFFFF0000),
+                              Color(0xFFFFFF00),
+                              Color(0xFF00FF00),
+                              Color(0xFF00FFFF),
+                              Color(0xFF0000FF),
+                              Color(0xFFFF00FF),
+                              Color(0xFFFF0000),
+                            ],
+                          ),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top: (((_hue / 360) * 180) - 3).clamp(0.0, 180 - 6),
+                              child: Container(
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      blurRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // 선택 버튼
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      widget.onColorSelected(_selectedColor);
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _accentColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      '선택',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
