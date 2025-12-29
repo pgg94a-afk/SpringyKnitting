@@ -41,6 +41,10 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   int _pointerCount = 0;
   bool _isDrawing = false;
 
+  // 플로팅 툴바 관련
+  bool _isToolbarExpanded = false;
+  bool _isEraserMode = false;
+
   // 스크롤 컨트롤러
   final ScrollController _scrollController = ScrollController();
 
@@ -264,8 +268,14 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
           children: [
             if (_pdfName != null) _buildPdfHeader(),
             Expanded(child: _buildPdfViewer()),
-            _buildBottomToolbar(),
           ],
+        ),
+        // 플로팅 툴바
+        Positioned(
+          bottom: 24,
+          left: 0,
+          right: 0,
+          child: Center(child: _buildFloatingToolbar()),
         ),
         if (_isLoading) _buildLoadingOverlay(),
       ],
@@ -535,35 +545,45 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
     return GestureDetector(
       onPanStart: (details) {
         if (_pointerCount == 1) {
-          setState(() {
-            _currentPage = pageNumber;
-            _isDrawing = true;
-            _pageDrawings.putIfAbsent(pageNumber, () => []);
-            final normalizedPoint = Offset(
-              details.localPosition.dx / pageSize.width,
-              details.localPosition.dy / pageSize.height,
-            );
-            _pageDrawings[pageNumber]!.add(
-              DrawingStroke(
-                color: _highlightColor,
-                strokeWidth: _strokeWidth / pageSize.width * 100,
-                points: [normalizedPoint],
-              ),
-            );
-          });
-        }
-      },
-      onPanUpdate: (details) {
-        if (_pointerCount == 1 && _isDrawing && _currentPage == pageNumber) {
-          setState(() {
-            if (_pageDrawings[pageNumber]?.isNotEmpty ?? false) {
+          if (_isEraserMode) {
+            // 지우개 모드: 터치한 위치의 형광펜 삭제
+            _eraseStrokeAtPosition(pageNumber, details.localPosition, pageSize);
+          } else {
+            setState(() {
+              _currentPage = pageNumber;
+              _isDrawing = true;
+              _pageDrawings.putIfAbsent(pageNumber, () => []);
               final normalizedPoint = Offset(
                 details.localPosition.dx / pageSize.width,
                 details.localPosition.dy / pageSize.height,
               );
-              _pageDrawings[pageNumber]!.last.points.add(normalizedPoint);
-            }
-          });
+              _pageDrawings[pageNumber]!.add(
+                DrawingStroke(
+                  color: _highlightColor,
+                  strokeWidth: _strokeWidth / pageSize.width * 100,
+                  points: [normalizedPoint],
+                ),
+              );
+            });
+          }
+        }
+      },
+      onPanUpdate: (details) {
+        if (_pointerCount == 1 && _currentPage == pageNumber) {
+          if (_isEraserMode) {
+            // 지우개 모드: 드래그하면서 지우기
+            _eraseStrokeAtPosition(pageNumber, details.localPosition, pageSize);
+          } else if (_isDrawing) {
+            setState(() {
+              if (_pageDrawings[pageNumber]?.isNotEmpty ?? false) {
+                final normalizedPoint = Offset(
+                  details.localPosition.dx / pageSize.width,
+                  details.localPosition.dy / pageSize.height,
+                );
+                _pageDrawings[pageNumber]!.last.points.add(normalizedPoint);
+              }
+            });
+          }
         }
       },
       onPanEnd: (_) {
@@ -577,59 +597,210 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
     );
   }
 
-  Widget _buildBottomToolbar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  void _eraseStrokeAtPosition(int pageNumber, Offset position, Size pageSize) {
+    final strokes = _pageDrawings[pageNumber];
+    if (strokes == null || strokes.isEmpty) return;
+
+    // 정규화된 위치로 변환
+    final normalizedPos = Offset(
+      position.dx / pageSize.width,
+      position.dy / pageSize.height,
+    );
+
+    // 터치 반경 (정규화된 값)
+    const touchRadius = 0.03;
+
+    // 뒤에서부터 검사 (최근에 그린 것부터)
+    for (int i = strokes.length - 1; i >= 0; i--) {
+      final stroke = strokes[i];
+      for (final point in stroke.points) {
+        final distance = (point - normalizedPos).distance;
+        // 터치 반경 + 스트로크 두께의 절반 내에 있으면 삭제
+        final strokeRadiusNormalized = stroke.strokeWidth / 100 / 2;
+        if (distance <= touchRadius + strokeRadiusNormalized) {
+          setState(() {
+            strokes.removeAt(i);
+          });
+          return;
+        }
+      }
+    }
+  }
+
+  Widget _buildFloatingToolbar() {
+    final highlightColors = [
+      Colors.yellow.withOpacity(0.4),
+      Colors.pink.withOpacity(0.4),
+      Colors.lightBlue.withOpacity(0.4),
+      Colors.lightGreen.withOpacity(0.4),
+      Colors.orange.withOpacity(0.4),
+    ];
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+      padding: EdgeInsets.symmetric(
+        horizontal: _isToolbarExpanded ? 12 : 0,
+        vertical: _isToolbarExpanded ? 8 : 0,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        border: Border(
-          top: BorderSide(color: Colors.grey.shade200),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_isToolbarExpanded ? 28 : 28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildToolButton(
-            icon: _isDrawingMode ? Icons.edit : Icons.edit_outlined,
-            label: '형광펜',
-            isActive: _isDrawingMode,
-            onTap: _toggleDrawingMode,
-          ),
-          _buildToolButton(
-            icon: Icons.palette_outlined,
-            label: '색상',
-            onTap: _showColorPicker,
-            activeColor: _highlightColor.withOpacity(1),
-          ),
-          _buildToolButton(
-            icon: Icons.undo,
-            label: '실행취소',
-            onTap: () {
-              setState(() {
-                if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
-                  _pageDrawings[_currentPage]!.removeLast();
-                }
-              });
-            },
-          ),
-          _buildToolButton(
-            icon: Icons.cleaning_services_outlined,
-            label: '지우기',
-            onTap: () => _showClearOptionsSheet(),
-          ),
-        ],
+      child: _isToolbarExpanded
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 접기 버튼
+                _buildFloatingToolButton(
+                  icon: Icons.close,
+                  isActive: false,
+                  onTap: () {
+                    setState(() {
+                      _isToolbarExpanded = false;
+                      _isEraserMode = false;
+                    });
+                  },
+                ),
+                const SizedBox(width: 8),
+                // 구분선
+                Container(
+                  width: 1,
+                  height: 28,
+                  color: Colors.grey.shade300,
+                ),
+                const SizedBox(width: 8),
+                // 형광펜 색상들
+                ...highlightColors.map((color) {
+                  final isSelected = _highlightColor.value == color.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _highlightColor = color;
+                          _isDrawingMode = true;
+                          _isEraserMode = false;
+                        });
+                      },
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected && _isDrawingMode && !_isEraserMode
+                                ? _accentColor
+                                : Colors.grey.shade300,
+                            width: isSelected && _isDrawingMode && !_isEraserMode ? 2.5 : 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(width: 4),
+                // 구분선
+                Container(
+                  width: 1,
+                  height: 28,
+                  color: Colors.grey.shade300,
+                ),
+                const SizedBox(width: 8),
+                // 실행취소
+                _buildFloatingToolButton(
+                  icon: Icons.undo,
+                  isActive: false,
+                  onTap: () {
+                    setState(() {
+                      if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
+                        _pageDrawings[_currentPage]!.removeLast();
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(width: 4),
+                // 지우개
+                _buildFloatingToolButton(
+                  icon: Icons.auto_fix_high,
+                  isActive: _isEraserMode,
+                  onTap: () {
+                    setState(() {
+                      _isEraserMode = !_isEraserMode;
+                      if (_isEraserMode) {
+                        _isDrawingMode = true;
+                      }
+                    });
+                  },
+                  onLongPress: () => _showEraserOptionsSheet(),
+                ),
+              ],
+            )
+          : GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isToolbarExpanded = true;
+                });
+              },
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: _isDrawingMode
+                      ? (_isEraserMode ? Colors.red.shade100 : _highlightColor)
+                      : Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _isDrawingMode ? _accentColor : Colors.grey.shade300,
+                    width: _isDrawingMode ? 2.5 : 1.5,
+                  ),
+                ),
+                child: Icon(
+                  _isEraserMode
+                      ? Icons.auto_fix_high
+                      : (_isDrawingMode ? Icons.edit : Icons.edit_outlined),
+                  color: _isDrawingMode ? _accentColor : Colors.grey.shade500,
+                  size: 24,
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildFloatingToolButton({
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+    VoidCallback? onLongPress,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isActive ? _accentColor.withOpacity(0.15) : Colors.transparent,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 22,
+          color: isActive ? _accentColor : Colors.black54,
+        ),
       ),
     );
   }
 
-  void _showClearOptionsSheet() {
+  void _showEraserOptionsSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -642,60 +813,70 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text(
+              '지우기 옵션',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.cleaning_services_outlined),
-              title: const Text('현재 페이지 지우기'),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.auto_fix_high, size: 20),
+              ),
+              title: const Text('터치하여 지우기'),
+              subtitle: Text(
+                '형광펜 위를 터치하면 해당 형광펜만 삭제',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              onTap: () {
+                setState(() {
+                  _isEraserMode = true;
+                  _isDrawingMode = true;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.cleaning_services_outlined, size: 20),
+              ),
+              title: const Text('현재 페이지 전체 지우기'),
               onTap: () {
                 _clearCurrentPageDrawings();
                 Navigator.pop(context);
               },
             ),
+            const SizedBox(height: 8),
             ListTile(
-              leading: Icon(Icons.delete_sweep_outlined, color: Colors.red.shade400),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.delete_sweep_outlined, size: 20, color: Colors.red.shade400),
+              ),
               title: Text('모든 페이지 지우기', style: TextStyle(color: Colors.red.shade400)),
               onTap: () {
                 _clearAllDrawings();
                 Navigator.pop(context);
               },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToolButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isActive = false,
-    Color? activeColor,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? _accentColor.withOpacity(0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 22,
-              color: activeColor ?? (isActive ? _accentColor : Colors.black54),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: isActive ? _accentColor : Colors.black54,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              ),
             ),
           ],
         ),
