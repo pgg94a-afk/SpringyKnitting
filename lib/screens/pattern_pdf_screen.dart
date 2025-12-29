@@ -44,6 +44,10 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   // 플로팅 툴바 관련
   bool _isToolbarExpanded = false;
   bool _isEraserMode = false;
+  Offset _toolbarPosition = const Offset(0, 0); // 초기 위치 (나중에 설정)
+  bool _isToolbarPositionInitialized = false;
+  static const double _collapsedToolbarSize = 56.0;
+  static const double _expandedToolbarWidth = 340.0; // 펼쳐진 툴바 너비
 
   // 스크롤 컨트롤러
   final ScrollController _scrollController = ScrollController();
@@ -262,23 +266,47 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
       return _buildEmptyState();
     }
 
-    return Stack(
-      children: [
-        Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final screenHeight = constraints.maxHeight;
+
+        // 초기 위치 설정 (화면 하단 중앙)
+        if (!_isToolbarPositionInitialized) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_isToolbarPositionInitialized) {
+              setState(() {
+                _toolbarPosition = Offset(
+                  (screenWidth - _collapsedToolbarSize) / 2,
+                  screenHeight - _collapsedToolbarSize - 24,
+                );
+                _isToolbarPositionInitialized = true;
+              });
+            }
+          });
+        }
+
+        return Stack(
           children: [
-            if (_pdfName != null) _buildPdfHeader(),
-            Expanded(child: _buildPdfViewer()),
+            Column(
+              children: [
+                if (_pdfName != null) _buildPdfHeader(),
+                Expanded(child: _buildPdfViewer()),
+              ],
+            ),
+            // 플로팅 툴바
+            if (_isToolbarPositionInitialized)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                left: _toolbarPosition.dx,
+                top: _toolbarPosition.dy,
+                child: _buildDraggableFloatingToolbar(screenWidth, screenHeight),
+              ),
+            if (_isLoading) _buildLoadingOverlay(),
           ],
-        ),
-        // 플로팅 툴바
-        Positioned(
-          bottom: 24,
-          left: 0,
-          right: 0,
-          child: Center(child: _buildFloatingToolbar()),
-        ),
-        if (_isLoading) _buildLoadingOverlay(),
-      ],
+        );
+      },
     );
   }
 
@@ -627,7 +655,40 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
     }
   }
 
-  Widget _buildFloatingToolbar() {
+  Widget _buildDraggableFloatingToolbar(double screenWidth, double screenHeight) {
+    return GestureDetector(
+      onPanUpdate: (details) {
+        if (!_isToolbarExpanded) {
+          setState(() {
+            double newX = _toolbarPosition.dx + details.delta.dx;
+            double newY = _toolbarPosition.dy + details.delta.dy;
+
+            // 화면 경계 내로 제한
+            newX = newX.clamp(0, screenWidth - _collapsedToolbarSize);
+            newY = newY.clamp(0, screenHeight - _collapsedToolbarSize);
+
+            _toolbarPosition = Offset(newX, newY);
+          });
+        }
+      },
+      child: _buildFloatingToolbar(screenWidth),
+    );
+  }
+
+  void _expandToolbar(double screenWidth) {
+    setState(() {
+      // 펼쳤을 때 화면 밖으로 나가는지 확인
+      final rightEdge = _toolbarPosition.dx + _expandedToolbarWidth;
+      if (rightEdge > screenWidth - 16) {
+        // 화면 밖으로 나가면 자동으로 위치 조정
+        final newX = screenWidth - _expandedToolbarWidth - 16;
+        _toolbarPosition = Offset(newX.clamp(16, screenWidth - _expandedToolbarWidth - 16), _toolbarPosition.dy);
+      }
+      _isToolbarExpanded = true;
+    });
+  }
+
+  Widget _buildFloatingToolbar(double screenWidth) {
     final highlightColors = [
       Colors.yellow.withOpacity(0.4),
       Colors.pink.withOpacity(0.4),
@@ -645,7 +706,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(_isToolbarExpanded ? 28 : 28),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.15),
@@ -745,14 +806,10 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
               ],
             )
           : GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isToolbarExpanded = true;
-                });
-              },
+              onTap: () => _expandToolbar(screenWidth),
               child: Container(
-                width: 56,
-                height: 56,
+                width: _collapsedToolbarSize,
+                height: _collapsedToolbarSize,
                 decoration: BoxDecoration(
                   color: _isDrawingMode
                       ? (_isEraserMode ? Colors.red.shade100 : _highlightColor)
