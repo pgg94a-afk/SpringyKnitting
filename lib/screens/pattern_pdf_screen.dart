@@ -388,56 +388,80 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
         if (_pointerCount == 0) _isDrawing = false;
       },
       behavior: HitTestBehavior.translucent,
-      child: Stack(
-        children: [
-          // PDF 뷰어 (줌/스크롤 처리)
-          PdfViewPinch(
-            controller: _pdfController!,
-            onPageChanged: (page) {
-              setState(() => _currentPage = page);
-            },
-            builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
-              options: const DefaultBuilderOptions(),
-              documentLoaderBuilder: (_) => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              pageLoaderBuilder: (_) => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              errorBuilder: (_, error) => Center(
-                child: Text('오류: $error'),
-              ),
-            ),
+      child: PdfViewPinch(
+        controller: _pdfController!,
+        onPageChanged: (page) {
+          setState(() => _currentPage = page);
+        },
+        builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
+          options: const DefaultBuilderOptions(),
+          documentLoaderBuilder: (_) => const Center(
+            child: CircularProgressIndicator(),
           ),
-          // 드로잉 표시 레이어 (항상 표시, 터치 이벤트 무시)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: HighlightPainter(
-                  strokes: _pageDrawings[_currentPage] ?? [],
+          pageLoaderBuilder: (_) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          errorBuilder: (_, error) => Center(
+            child: Text('오류: $error'),
+          ),
+          // 페이지 빌더: PDF 페이지 위에 드로잉 오버레이 추가
+          pageBuilder: (context, pageImage, pageNumber, document) {
+            return Stack(
+              children: [
+                // PDF 페이지 이미지
+                Image.memory(
+                  pageImage.bytes,
+                  fit: BoxFit.contain,
+                  width: pageImage.width.toDouble(),
+                  height: pageImage.height.toDouble(),
                 ),
-                size: Size.infinite,
-              ),
-            ),
-          ),
-          // 드로잉 입력 레이어 (형광펜 모드일 때만)
-          if (_isDrawingMode)
-            Positioned.fill(
-              child: _buildDrawingInputLayer(),
-            ),
-        ],
+                // 드로잉 표시 레이어 (페이지와 함께 변환됨)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: HighlightPainter(
+                      strokes: _pageDrawings[pageNumber] ?? [],
+                      pageSize: Size(
+                        pageImage.width.toDouble(),
+                        pageImage.height.toDouble(),
+                      ),
+                    ),
+                    size: Size(
+                      pageImage.width.toDouble(),
+                      pageImage.height.toDouble(),
+                    ),
+                  ),
+                ),
+                // 드로잉 입력 레이어 (형광펜 모드일 때만)
+                if (_isDrawingMode && pageNumber == _currentPage)
+                  Positioned.fill(
+                    child: _buildDrawingInputLayer(
+                      Size(
+                        pageImage.width.toDouble(),
+                        pageImage.height.toDouble(),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildDrawingInputLayer() {
+  Widget _buildDrawingInputLayer(Size pageSize) {
     return Listener(
       onPointerMove: (event) {
         // 한 손가락이고 드로잉 중일 때만 포인트 추가
         if (_pointerCount == 1 && _isDrawing) {
           setState(() {
             if (_pageDrawings[_currentPage]?.isNotEmpty ?? false) {
-              _pageDrawings[_currentPage]!.last.points.add(event.localPosition);
+              // 정규화된 좌표로 저장 (0~1 범위)
+              final normalizedPoint = Offset(
+                event.localPosition.dx / pageSize.width,
+                event.localPosition.dy / pageSize.height,
+              );
+              _pageDrawings[_currentPage]!.last.points.add(normalizedPoint);
             }
           });
         }
@@ -450,11 +474,16 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
             setState(() {
               _isDrawing = true;
               _pageDrawings.putIfAbsent(_currentPage, () => []);
+              // 정규화된 좌표로 저장 (0~1 범위)
+              final normalizedPoint = Offset(
+                details.localPosition.dx / pageSize.width,
+                details.localPosition.dy / pageSize.height,
+              );
               _pageDrawings[_currentPage]!.add(
                 DrawingStroke(
                   color: _highlightColor,
-                  strokeWidth: _strokeWidth,
-                  points: [details.localPosition],
+                  strokeWidth: _strokeWidth / pageSize.width * 100, // 상대적 두께
+                  points: [normalizedPoint],
                 ),
               );
             });
@@ -624,27 +653,43 @@ class DrawingStroke {
 // 형광펜 페인터
 class HighlightPainter extends CustomPainter {
   final List<DrawingStroke> strokes;
+  final Size? pageSize;
 
-  HighlightPainter({required this.strokes});
+  HighlightPainter({required this.strokes, this.pageSize});
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 실제 그릴 크기 (pageSize가 있으면 사용, 없으면 canvas size 사용)
+    final drawSize = pageSize ?? size;
+
     for (final stroke in strokes) {
       if (stroke.points.isEmpty) continue;
 
+      // 정규화된 두께를 실제 두께로 변환
+      final actualStrokeWidth = stroke.strokeWidth * drawSize.width / 100;
+
       final paint = Paint()
         ..color = stroke.color
-        ..strokeWidth = stroke.strokeWidth
+        ..strokeWidth = actualStrokeWidth
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke
         ..blendMode = BlendMode.multiply;
 
       final path = Path();
-      path.moveTo(stroke.points.first.dx, stroke.points.first.dy);
+      // 정규화된 좌표를 실제 좌표로 변환
+      final firstPoint = Offset(
+        stroke.points.first.dx * drawSize.width,
+        stroke.points.first.dy * drawSize.height,
+      );
+      path.moveTo(firstPoint.dx, firstPoint.dy);
 
       for (int i = 1; i < stroke.points.length; i++) {
-        path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
+        final point = Offset(
+          stroke.points[i].dx * drawSize.width,
+          stroke.points[i].dy * drawSize.height,
+        );
+        path.lineTo(point.dx, point.dy);
       }
 
       canvas.drawPath(path, paint);
