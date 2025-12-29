@@ -606,7 +606,7 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         Expanded(
           child: _buildInteractiveGrid(),
         ),
-        // 키패드
+        // 키패드 (K, P, + 버튼만)
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -619,44 +619,72 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
             ),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 뒤로 버튼
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: _moveToPreviousTraceCell,
-                tooltip: '이전 셀',
-              ),
-              // 버튼들
-              ..._padButtons.map((button) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ElevatedButton(
-                  onPressed: () => _addTraceStitch(button),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: button.color,
-                    foregroundColor: _getContrastColor(button.color),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+              // K 버튼
+              ElevatedButton(
+                onPressed: () => _addTraceStitch(ButtonPresets.knit),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ButtonPresets.knit.color,
+                  foregroundColor: _getContrastColor(ButtonPresets.knit.color),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
                   ),
-                  child: Text(
-                    button.abbreviation,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-              )),
-              // 삭제 버튼
-              IconButton(
-                icon: const Icon(Icons.backspace),
-                onPressed: _removeTraceStitch,
-                tooltip: '삭제',
+                child: Text(
+                  ButtonPresets.knit.abbreviation,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // P 버튼
+              ElevatedButton(
+                onPressed: () => _addTraceStitch(ButtonPresets.purl),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ButtonPresets.purl.color,
+                  foregroundColor: _getContrastColor(ButtonPresets.purl.color),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  ButtonPresets.purl.abbreviation,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // + 버튼 (버튼 추가)
+              ElevatedButton(
+                onPressed: _showAddButton,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey.shade300,
+                  foregroundColor: Colors.black87,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.add,
+                  size: 24,
+                ),
               ),
             ],
           ),
