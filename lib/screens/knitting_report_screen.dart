@@ -628,74 +628,92 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
         final gridWidth = _gridCols * baseCellSize;
         final gridHeight = _gridRows * baseCellSize;
 
-        return GestureDetector(
-      onTapDown: _isSelectingExcluded ? (details) {
-        _handleGridTapDown(details, baseCellSize, gridWidth, gridHeight);
-      } : null,
-      onTapUp: _isSelectingExcluded ? (_) {
-        _handleGridTapUp();
-      } : null,
-      onTapCancel: _isSelectingExcluded ? () {
-        // 탭이 취소되면 (드래그로 전환됨) 플래그만 업데이트
-        _isPanning = true;
-      } : null,
-      onPanStart: _isSelectingExcluded ? (details) {
-        _isPanning = true;
-      } : null,
-      onPanUpdate: _isSelectingExcluded ? (details) {
-        _handleGridPanUpdate(details, baseCellSize, gridWidth, gridHeight);
-      } : null,
-      onPanEnd: _isSelectingExcluded ? (_) {
-        _handleGridPanEnd();
-      } : null,
-      child: InteractiveViewer(
-        transformationController: _transformationController,
-        minScale: 0.5,
-        maxScale: 4.0,
-        boundaryMargin: const EdgeInsets.all(100),
-        panEnabled: !_isSelectingExcluded,
-        scaleEnabled: !_isSelectingExcluded,
-        child: Center(
-          child: CustomPaint(
-            key: _gridPaintKey,
-            size: Size(gridWidth, gridHeight),
-            painter: _TraceGridPainter(
-              rows: _gridRows,
-              cols: _gridCols,
-              cellSize: baseCellSize,
-              traceGrid: _traceGrid,
-              currentRow: _currentTraceRow,
-              currentCol: _currentTraceCol,
-              excludedCells: _excludedCells,
-              dragStartRow: _dragStartRow,
-              dragStartCol: _dragStartCol,
-              dragEndRow: _dragEndRow,
-              dragEndCol: _dragEndCol,
-              isSelectingExcluded: _isSelectingExcluded,
+        // 선택 모드일 때는 Listener 사용 (제스처 경쟁 없음)
+        // 일반 모드일 때는 InteractiveViewer만 사용
+        if (_isSelectingExcluded) {
+          return Listener(
+            onPointerDown: (details) {
+              _handleGridPointerDown(details, baseCellSize, gridWidth, gridHeight);
+            },
+            onPointerMove: (details) {
+              _handleGridPointerMove(details, baseCellSize, gridWidth, gridHeight);
+            },
+            onPointerUp: (details) {
+              _handleGridPointerUp();
+            },
+            child: InteractiveViewer(
+              transformationController: _transformationController,
+              minScale: 0.5,
+              maxScale: 4.0,
+              boundaryMargin: const EdgeInsets.all(100),
+              panEnabled: false, // 선택 모드에서는 팬 비활성화
+              scaleEnabled: false, // 선택 모드에서는 줌 비활성화
+              child: Center(
+                child: CustomPaint(
+                  key: _gridPaintKey,
+                  size: Size(gridWidth, gridHeight),
+                  painter: _TraceGridPainter(
+                    rows: _gridRows,
+                    cols: _gridCols,
+                    cellSize: baseCellSize,
+                    traceGrid: _traceGrid,
+                    currentRow: _currentTraceRow,
+                    currentCol: _currentTraceCol,
+                    excludedCells: _excludedCells,
+                    dragStartRow: _dragStartRow,
+                    dragStartCol: _dragStartCol,
+                    dragEndRow: _dragEndRow,
+                    dragEndCol: _dragEndCol,
+                    isSelectingExcluded: _isSelectingExcluded,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
-        );
+          );
+        } else {
+          return InteractiveViewer(
+            transformationController: _transformationController,
+            minScale: 0.5,
+            maxScale: 4.0,
+            boundaryMargin: const EdgeInsets.all(100),
+            child: Center(
+              child: CustomPaint(
+                key: _gridPaintKey,
+                size: Size(gridWidth, gridHeight),
+                painter: _TraceGridPainter(
+                  rows: _gridRows,
+                  cols: _gridCols,
+                  cellSize: baseCellSize,
+                  traceGrid: _traceGrid,
+                  currentRow: _currentTraceRow,
+                  currentCol: _currentTraceCol,
+                  excludedCells: _excludedCells,
+                  dragStartRow: _dragStartRow,
+                  dragStartCol: _dragStartCol,
+                  dragEndRow: _dragEndRow,
+                  dragEndCol: _dragEndCol,
+                  isSelectingExcluded: _isSelectingExcluded,
+                ),
+              ),
+            ),
+          );
+        }
       },
     );
   }
 
-  void _handleGridTapDown(TapDownDetails details, double cellSize, double gridWidth, double gridHeight) {
+  // Pointer 기반 핸들러 (Listener용) - 한 손가락만 사용
+  void _handleGridPointerDown(PointerDownEvent event, double cellSize, double gridWidth, double gridHeight) {
     final RenderBox? gridBox = _gridPaintKey.currentContext?.findRenderObject() as RenderBox?;
     if (gridBox == null) return;
 
-    final localPos = gridBox.globalToLocal(details.globalPosition);
-
+    final localPos = gridBox.globalToLocal(event.position);
     final gridX = localPos.dx;
     final gridY = localPos.dy;
 
     if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       setState(() {
-        // 플래그 초기화
         _isPanning = false;
-
-        // 터치 시작 즉시 시작점과 끝점 기록
         _dragStartCol = (gridX / cellSize).floor().clamp(0, _gridCols - 1);
         _dragStartRow = (_gridRows - 1 - (gridY / cellSize).floor()).clamp(0, _gridRows - 1);
         _dragEndCol = _dragStartCol;
@@ -704,36 +722,18 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
   }
 
-  void _handleGridTapUp() {
-    if (_dragStartRow == null || _dragStartCol == null || _dragEndRow == null || _dragEndCol == null) return;
-
-    // 드래그가 아니었을 때만 처리
-    if (!_isPanning) {
-      setState(() {
-        // 단일 셀 X 추가
-        final key = '$_dragStartRow,$_dragStartCol';
-        _excludedCells.add(key);
-
-        // 초기화
-        _dragStartRow = null;
-        _dragStartCol = null;
-        _dragEndRow = null;
-        _dragEndCol = null;
-        _isPanning = false;
-      });
-    }
-  }
-
-  void _handleGridPanUpdate(DragUpdateDetails details, double cellSize, double gridWidth, double gridHeight) {
+  void _handleGridPointerMove(PointerMoveEvent event, double cellSize, double gridWidth, double gridHeight) {
     if (_dragStartRow == null || _dragStartCol == null) return;
 
     final RenderBox? gridBox = _gridPaintKey.currentContext?.findRenderObject() as RenderBox?;
     if (gridBox == null) return;
 
-    final localPos = gridBox.globalToLocal(details.globalPosition);
-
+    final localPos = gridBox.globalToLocal(event.position);
     final gridX = localPos.dx;
     final gridY = localPos.dy;
+
+    // 움직임 감지 시 드래그 모드로 전환
+    _isPanning = true;
 
     if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight) {
       setState(() {
@@ -743,21 +743,27 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
     }
   }
 
-  void _handleGridPanEnd() {
+  void _handleGridPointerUp() {
     if (_dragStartRow == null || _dragStartCol == null || _dragEndRow == null || _dragEndCol == null) return;
 
     setState(() {
-      // 드래그로 범위 X 추가
-      final minRow = _dragStartRow! < _dragEndRow! ? _dragStartRow! : _dragEndRow!;
-      final maxRow = _dragStartRow! > _dragEndRow! ? _dragStartRow! : _dragEndRow!;
-      final minCol = _dragStartCol! < _dragEndCol! ? _dragStartCol! : _dragEndCol!;
-      final maxCol = _dragStartCol! > _dragEndCol! ? _dragStartCol! : _dragEndCol!;
+      if (_isPanning) {
+        // 드래그: 범위 선택
+        final minRow = _dragStartRow! < _dragEndRow! ? _dragStartRow! : _dragEndRow!;
+        final maxRow = _dragStartRow! > _dragEndRow! ? _dragStartRow! : _dragEndRow!;
+        final minCol = _dragStartCol! < _dragEndCol! ? _dragStartCol! : _dragEndCol!;
+        final maxCol = _dragStartCol! > _dragEndCol! ? _dragStartCol! : _dragEndCol!;
 
-      for (int row = minRow; row <= maxRow; row++) {
-        for (int col = minCol; col <= maxCol; col++) {
-          final key = '$row,$col';
-          _excludedCells.add(key); // 항상 X 추가만
+        for (int row = minRow; row <= maxRow; row++) {
+          for (int col = minCol; col <= maxCol; col++) {
+            final key = '$row,$col';
+            _excludedCells.add(key);
+          }
         }
+      } else {
+        // 단순 탭: 단일 셀 선택
+        final key = '$_dragStartRow,$_dragStartCol';
+        _excludedCells.add(key);
       }
 
       // 초기화
