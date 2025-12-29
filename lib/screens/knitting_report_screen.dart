@@ -623,7 +623,8 @@ class _KnittingReportScreenState extends State<KnittingReportScreen> {
 
         final cellSizeByWidth = availableWidth / _gridCols;
         final cellSizeByHeight = availableHeight / _gridRows;
-        final baseCellSize = (cellSizeByWidth < cellSizeByHeight ? cellSizeByWidth : cellSizeByHeight).clamp(10.0, 60.0);
+        // 최소 셀 크기를 2.0으로 낮춰서 큰 그리드도 화면에 맞춤
+        final baseCellSize = (cellSizeByWidth < cellSizeByHeight ? cellSizeByWidth : cellSizeByHeight).clamp(2.0, 60.0);
 
         final gridWidth = _gridCols * baseCellSize;
         final gridHeight = _gridRows * baseCellSize;
@@ -1485,10 +1486,13 @@ class _TraceGridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 0. 행 번호 표시 (왼쪽에, 5단위로)
+    // 0. 행 번호 표시 (왼쪽에, 5단위로, 셀 크기에 비례)
+    final fontSize = (cellSize * 0.3).clamp(6.0, 12.0);
+    final numberGap = (cellSize * 0.3).clamp(3.0, 6.0);
+
     final numberTextStyle = TextStyle(
       color: Colors.black.withOpacity(0.6),
-      fontSize: (cellSize * 0.25).clamp(8.0, 12.0),
+      fontSize: fontSize,
       fontWeight: FontWeight.bold,
     );
 
@@ -1507,22 +1511,25 @@ class _TraceGridPainter extends CustomPainter {
         textPainter.paint(
           canvas,
           Offset(
-            -textPainter.width - 6,
+            -textPainter.width - numberGap,
             displayRow * cellSize + (cellSize - textPainter.height) / 2,
           ),
         );
       }
     }
 
-    // 1. 격자선 그리기
+    // 1. 격자선 그리기 (셀 크기에 비례하도록 조정)
+    final gridStrokeWidth = (cellSize * 0.02).clamp(0.3, 0.5);
+    final boldGridStrokeWidth = (cellSize * 0.05).clamp(0.5, 1.5);
+
     final gridPaint = Paint()
       ..color = Colors.black.withOpacity(0.2)
-      ..strokeWidth = 0.5
+      ..strokeWidth = gridStrokeWidth
       ..style = PaintingStyle.stroke;
 
     final boldGridPaint = Paint()
       ..color = Colors.black.withOpacity(0.3)
-      ..strokeWidth = 1.5
+      ..strokeWidth = boldGridStrokeWidth
       ..style = PaintingStyle.stroke;
 
     for (int i = 0; i <= rows; i++) {
@@ -1560,16 +1567,19 @@ class _TraceGridPainter extends CustomPainter {
         excludedPaint,
       );
 
-      // X 표시
+      // X 표시 (셀 크기에 비례)
+      final xStrokeWidth = (cellSize * 0.1).clamp(0.5, 2.0);
+      final xPadding = (cellSize * 0.15).clamp(1.0, 4.0);
+
       final xPaint = Paint()
         ..color = Colors.red
-        ..strokeWidth = 2
+        ..strokeWidth = xStrokeWidth
         ..style = PaintingStyle.stroke;
 
-      final left = col * cellSize + 4;
-      final top = displayRow * cellSize + 4;
-      final right = (col + 1) * cellSize - 4;
-      final bottom = (displayRow + 1) * cellSize - 4;
+      final left = col * cellSize + xPadding;
+      final top = displayRow * cellSize + xPadding;
+      final right = (col + 1) * cellSize - xPadding;
+      final bottom = (displayRow + 1) * cellSize - xPadding;
 
       canvas.drawLine(Offset(left, top), Offset(right, bottom), xPaint);
       canvas.drawLine(Offset(right, top), Offset(left, bottom), xPaint);
