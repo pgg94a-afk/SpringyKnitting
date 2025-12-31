@@ -71,6 +71,9 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
   // 스크롤 컨트롤러
   final ScrollController _scrollController = ScrollController();
 
+  // 화면 크기 (드로잉 영역 확장용)
+  Size _screenSize = Size.zero;
+
   // 디자인 색상
   static const Color _glassBackground = Color(0xFFF1F0EF);
   static const Color _accentColor = Color(0xFF6B7280);
@@ -290,6 +293,17 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
         final screenHeight = constraints.maxHeight;
+
+        // 화면 크기 저장 (드로잉 영역 확장용)
+        if (_screenSize.width != screenWidth || _screenSize.height != screenHeight) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _screenSize = Size(screenWidth, screenHeight);
+              });
+            }
+          });
+        }
 
         // 초기 위치 설정 (화면 하단 중앙)
         if (!_isToolbarPositionInitialized) {
@@ -621,49 +635,68 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
             ),
           ),
           // PDF 페이지와 드로잉 (줌은 상위 InteractiveViewer에서 처리)
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // 실제 표시되는 크기를 기준으로 pageSize 계산
-                final displayWidth = constraints.maxWidth;
-                final aspectRatio = pageImage.width! / pageImage.height!;
-                final displayHeight = displayWidth / aspectRatio;
-                final displaySize = Size(displayWidth, displayHeight);
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // 실제 표시되는 크기를 기준으로 pageSize 계산
+              final displayWidth = constraints.maxWidth;
+              final aspectRatio = pageImage.width! / pageImage.height!;
+              final displayHeight = displayWidth / aspectRatio;
+              final displaySize = Size(displayWidth, displayHeight);
+              // 드로잉 영역 확장 (화면 전체 영역을 커버하도록)
+              // 화면 크기의 절반 + 여유분으로 설정하여 터치 가능한 모든 영역 커버
+              final drawingPadding = _screenSize.width > 0
+                  ? (_screenSize.width + _screenSize.height) / 2
+                  : 200.0;
 
-                return Stack(
-                  children: [
-                    // PDF 페이지 이미지
-                    Image.memory(
+              return Stack(
+                clipBehavior: Clip.none, // 페이지 밖으로 드로잉 허용
+                children: [
+                  // PDF 페이지 이미지
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                    child: Image.memory(
                       pageImage.bytes,
                       fit: BoxFit.contain,
                       width: displayWidth,
                     ),
-                    // 드로잉 표시 레이어
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: HighlightPainter(
-                          strokes: _pageDrawings[pageNumber] ?? [],
-                          pageSize: displaySize,
-                        ),
+                  ),
+                  // 드로잉 표시 레이어 (확장된 영역)
+                  Positioned(
+                    left: -drawingPadding,
+                    right: -drawingPadding,
+                    top: -drawingPadding,
+                    bottom: -drawingPadding,
+                    child: CustomPaint(
+                      painter: HighlightPainter(
+                        strokes: _pageDrawings[pageNumber] ?? [],
+                        pageSize: displaySize,
+                        drawingPadding: drawingPadding,
                       ),
                     ),
-                    // 드로잉 입력 레이어
-                    if (_isDrawingMode)
-                      Positioned.fill(
-                        child: _buildDrawingInputLayer(pageNumber, displaySize),
+                  ),
+                  // 드로잉 입력 레이어 (확장된 영역)
+                  if (_isDrawingMode)
+                    Positioned(
+                      left: -drawingPadding,
+                      right: -drawingPadding,
+                      top: -drawingPadding,
+                      bottom: -drawingPadding,
+                      child: _buildDrawingInputLayer(
+                        pageNumber,
+                        displaySize,
+                        drawingPadding: drawingPadding,
                       ),
-                  ],
-                );
-              },
-            ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDrawingInputLayer(int pageNumber, Size pageSize) {
+  Widget _buildDrawingInputLayer(int pageNumber, Size pageSize, {double drawingPadding = 0}) {
     // 현재 모드에 맞는 두께 선택
     final currentStrokeWidth = _isHighlighterMode
         ? _highlighterStrokeWidth
@@ -672,17 +705,24 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
     return GestureDetector(
       onPanStart: (details) {
         if (_pointerCount == 1) {
+          // 패딩을 고려한 좌표 계산
+          final adjustedPosition = Offset(
+            details.localPosition.dx - drawingPadding,
+            details.localPosition.dy - drawingPadding,
+          );
+
           if (_isEraserMode) {
             // 지우개 모드: 터치한 위치의 펜/형광펜 삭제
-            _eraseStrokeAtPosition(pageNumber, details.localPosition, pageSize);
+            _eraseStrokeAtPosition(pageNumber, adjustedPosition, pageSize);
           } else {
             setState(() {
               _currentPage = pageNumber;
               _isDrawing = true;
               _pageDrawings.putIfAbsent(pageNumber, () => []);
+              // 정규화된 좌표 (0~1 범위를 벗어날 수 있음)
               final normalizedPoint = Offset(
-                details.localPosition.dx / pageSize.width,
-                details.localPosition.dy / pageSize.height,
+                adjustedPosition.dx / pageSize.width,
+                adjustedPosition.dy / pageSize.height,
               );
               _pageDrawings[pageNumber]!.add(
                 DrawingStroke(
@@ -698,15 +738,21 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
       },
       onPanUpdate: (details) {
         if (_pointerCount == 1 && _currentPage == pageNumber) {
+          // 패딩을 고려한 좌표 계산
+          final adjustedPosition = Offset(
+            details.localPosition.dx - drawingPadding,
+            details.localPosition.dy - drawingPadding,
+          );
+
           if (_isEraserMode) {
             // 지우개 모드: 드래그하면서 지우기
-            _eraseStrokeAtPosition(pageNumber, details.localPosition, pageSize);
+            _eraseStrokeAtPosition(pageNumber, adjustedPosition, pageSize);
           } else if (_isDrawing) {
             setState(() {
               if (_pageDrawings[pageNumber]?.isNotEmpty ?? false) {
                 final normalizedPoint = Offset(
-                  details.localPosition.dx / pageSize.width,
-                  details.localPosition.dy / pageSize.height,
+                  adjustedPosition.dx / pageSize.width,
+                  adjustedPosition.dy / pageSize.height,
                 );
                 _pageDrawings[pageNumber]!.last.points.add(normalizedPoint);
               }
@@ -1302,8 +1348,13 @@ class DrawingStroke {
 class HighlightPainter extends CustomPainter {
   final List<DrawingStroke> strokes;
   final Size? pageSize;
+  final double drawingPadding;
 
-  HighlightPainter({required this.strokes, this.pageSize});
+  HighlightPainter({
+    required this.strokes,
+    this.pageSize,
+    this.drawingPadding = 0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1334,17 +1385,17 @@ class HighlightPainter extends CustomPainter {
       }
 
       final path = Path();
-      // 정규화된 좌표를 실제 좌표로 변환
+      // 정규화된 좌표를 실제 좌표로 변환 (패딩 고려)
       final firstPoint = Offset(
-        stroke.points.first.dx * drawSize.width,
-        stroke.points.first.dy * drawSize.height,
+        stroke.points.first.dx * drawSize.width + drawingPadding,
+        stroke.points.first.dy * drawSize.height + drawingPadding,
       );
       path.moveTo(firstPoint.dx, firstPoint.dy);
 
       for (int i = 1; i < stroke.points.length; i++) {
         final point = Offset(
-          stroke.points[i].dx * drawSize.width,
-          stroke.points[i].dy * drawSize.height,
+          stroke.points[i].dx * drawSize.width + drawingPadding,
+          stroke.points[i].dy * drawSize.height + drawingPadding,
         );
         path.lineTo(point.dx, point.dy);
       }
