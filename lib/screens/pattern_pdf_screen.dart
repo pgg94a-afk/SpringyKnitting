@@ -451,7 +451,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
             panEnabled: !_isDrawingMode,
             scaleEnabled: true,
             boundaryMargin: EdgeInsets.symmetric(
-              horizontal: constraints.maxWidth * 0.5,
+              horizontal: 0, // 좌우 패닝 방지 - 항상 화면 가장자리에 맞춤
               vertical: constraints.maxHeight * 0.5,
             ),
             onInteractionEnd: (details) {
