@@ -493,126 +493,139 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
     }
 
     // 드로잉 영역 확장 패딩 (페이지 외부에서도 터치 시작 가능하도록)
-    const double drawingPadding = 150.0;
+    const double drawingPadding = 100.0;
+    const double pageMarginH = 16.0;
+    const double pageMarginV = 8.0;
+    const double headerHeight = 28.0;
 
-    return Container(
-      // 확장된 드로잉 영역을 고려하여 음수 마진 적용
-      margin: EdgeInsets.symmetric(
-        horizontal: 16 - drawingPadding,
-        vertical: 8 - drawingPadding,
-      ),
-      child: Column(
-        children: [
-          // 페이지 번호 표시 (패딩만큼 들여쓰기)
-          Container(
-            margin: EdgeInsets.only(left: drawingPadding, right: drawingPadding, top: drawingPadding),
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                '$pageNumber / $_totalPages',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _accentColor,
-                  fontWeight: FontWeight.w500,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 실제 PDF 표시 영역 계산
+        final displayWidth = constraints.maxWidth - (pageMarginH * 2);
+        final aspectRatio = pageImage.width! / pageImage.height!;
+        final displayHeight = displayWidth / aspectRatio;
+        final displaySize = Size(displayWidth, displayHeight);
+
+        // 전체 Stack 크기 (PDF + 패딩)
+        final totalWidth = constraints.maxWidth;
+        final totalHeight = displayHeight + headerHeight + (drawingPadding * 2);
+
+        return SizedBox(
+          width: totalWidth,
+          height: totalHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 페이지 헤더 (페이지 번호)
+              Positioned(
+                left: pageMarginH,
+                right: pageMarginH,
+                top: drawingPadding,
+                height: headerHeight,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$pageNumber / $_totalPages',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _accentColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          // PDF 페이지와 드로잉 (줌은 상위 InteractiveViewer에서 처리)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // 확장된 영역에서 실제 PDF 표시 영역 계산
-              final displayWidth = constraints.maxWidth - drawingPadding * 2;
-              final aspectRatio = pageImage.width! / pageImage.height!;
-              final displayHeight = displayWidth / aspectRatio;
-              final displaySize = Size(displayWidth, displayHeight);
-
-              // Stack 크기를 확장하여 터치 영역 확보
-              return SizedBox(
-                width: constraints.maxWidth,
-                height: displayHeight + drawingPadding * 2,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // PDF 페이지 이미지 (중앙에 배치) + 배경
-                    Positioned(
-                      left: drawingPadding,
-                      top: 0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
-                          child: Image.memory(
-                            pageImage.bytes,
-                            fit: BoxFit.contain,
-                            width: displayWidth,
-                          ),
-                        ),
+              // PDF 페이지 이미지
+              Positioned(
+                left: pageMarginH,
+                right: pageMarginH,
+                top: drawingPadding + headerHeight,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                    child: Image.memory(
+                      pageImage.bytes,
+                      fit: BoxFit.contain,
+                      width: displayWidth,
                     ),
-                    // 드로잉 표시 레이어 (전체 영역)
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: HighlightPainter(
-                          strokes: _pageDrawings[pageNumber] ?? [],
-                          pageSize: displaySize,
-                          drawingPadding: drawingPadding,
-                        ),
-                      ),
-                    ),
-                    // 드로잉 입력 레이어 (전체 영역)
-                    if (_isDrawingMode)
-                      Positioned.fill(
-                        child: _buildDrawingInputLayer(
-                          pageNumber,
-                          displaySize,
-                          drawingPadding: drawingPadding,
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
-              );
-            },
+              ),
+              // 드로잉 표시 레이어 (전체 영역)
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: HighlightPainter(
+                    strokes: _pageDrawings[pageNumber] ?? [],
+                    pageSize: displaySize,
+                    drawingPadding: drawingPadding,
+                    headerHeight: headerHeight,
+                    marginH: pageMarginH,
+                  ),
+                ),
+              ),
+              // 드로잉 입력 레이어 (전체 영역)
+              if (_isDrawingMode)
+                Positioned.fill(
+                  child: _buildDrawingInputLayer(
+                    pageNumber,
+                    displaySize,
+                    drawingPadding: drawingPadding,
+                    headerHeight: headerHeight,
+                    marginH: pageMarginH,
+                  ),
+                ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildDrawingInputLayer(int pageNumber, Size pageSize, {double drawingPadding = 0}) {
+  Widget _buildDrawingInputLayer(
+    int pageNumber,
+    Size pageSize, {
+    double drawingPadding = 0,
+    double headerHeight = 0,
+    double marginH = 0,
+  }) {
     // 현재 모드에 맞는 두께 선택
     final currentStrokeWidth = _isHighlighterMode
         ? _highlighterStrokeWidth
         : _penStrokeWidth;
 
+    // PDF 이미지 시작 위치 (Stack 내에서)
+    final pdfOffsetX = marginH;
+    final pdfOffsetY = drawingPadding + headerHeight;
+
     return GestureDetector(
       onPanStart: (details) {
         if (_pointerCount == 1) {
-          // 패딩을 고려한 좌표 계산
+          // PDF 이미지 기준 좌표로 변환
           final adjustedPosition = Offset(
-            details.localPosition.dx - drawingPadding,
-            details.localPosition.dy - drawingPadding,
+            details.localPosition.dx - pdfOffsetX,
+            details.localPosition.dy - pdfOffsetY,
           );
 
           if (_isEraserMode) {
@@ -642,10 +655,10 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
       },
       onPanUpdate: (details) {
         if (_pointerCount == 1 && _currentPage == pageNumber) {
-          // 패딩을 고려한 좌표 계산
+          // PDF 이미지 기준 좌표로 변환
           final adjustedPosition = Offset(
-            details.localPosition.dx - drawingPadding,
-            details.localPosition.dy - drawingPadding,
+            details.localPosition.dx - pdfOffsetX,
+            details.localPosition.dy - pdfOffsetY,
           );
 
           if (_isEraserMode) {
@@ -1253,17 +1266,25 @@ class HighlightPainter extends CustomPainter {
   final List<DrawingStroke> strokes;
   final Size? pageSize;
   final double drawingPadding;
+  final double headerHeight;
+  final double marginH;
 
   HighlightPainter({
     required this.strokes,
     this.pageSize,
     this.drawingPadding = 0,
+    this.headerHeight = 0,
+    this.marginH = 0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     // 실제 그릴 크기 (pageSize가 있으면 사용, 없으면 canvas size 사용)
     final drawSize = pageSize ?? size;
+
+    // PDF 이미지 시작 위치 (Stack 내에서)
+    final pdfOffsetX = marginH;
+    final pdfOffsetY = drawingPadding + headerHeight;
 
     for (final stroke in strokes) {
       if (stroke.points.isEmpty) continue;
@@ -1289,17 +1310,17 @@ class HighlightPainter extends CustomPainter {
       }
 
       final path = Path();
-      // 정규화된 좌표를 실제 좌표로 변환 (패딩 고려)
+      // 정규화된 좌표를 실제 좌표로 변환 (PDF 위치 고려)
       final firstPoint = Offset(
-        stroke.points.first.dx * drawSize.width + drawingPadding,
-        stroke.points.first.dy * drawSize.height + drawingPadding,
+        stroke.points.first.dx * drawSize.width + pdfOffsetX,
+        stroke.points.first.dy * drawSize.height + pdfOffsetY,
       );
       path.moveTo(firstPoint.dx, firstPoint.dy);
 
       for (int i = 1; i < stroke.points.length; i++) {
         final point = Offset(
-          stroke.points[i].dx * drawSize.width + drawingPadding,
-          stroke.points[i].dy * drawSize.height + drawingPadding,
+          stroke.points[i].dx * drawSize.width + pdfOffsetX,
+          stroke.points[i].dy * drawSize.height + pdfOffsetY,
         );
         path.lineTo(point.dx, point.dy);
       }
