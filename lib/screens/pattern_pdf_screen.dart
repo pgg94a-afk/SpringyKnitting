@@ -462,6 +462,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
             child: SizedBox(
               width: constraints.maxWidth,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch, // 전체 너비로 확장
                 children: [
                   const SizedBox(height: 8),
                   ...List.generate(_totalPages, (index) {
@@ -513,6 +514,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
           width: totalWidth,
           height: totalHeight,
           child: Stack(
+            fit: StackFit.expand, // 전체 영역으로 확장
             clipBehavior: Clip.none,
             children: [
               // 페이지 헤더 (페이지 번호)
