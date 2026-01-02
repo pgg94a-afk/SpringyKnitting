@@ -493,20 +493,19 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
     }
 
     // 드로잉 영역 확장 패딩 (페이지 외부에서도 터치 시작 가능하도록)
-    const double drawingPadding = 100.0;
-    const double pageMarginH = 16.0;
-    const double pageMarginV = 8.0;
+    // 상하좌우 모두 동일한 패딩 적용
+    const double drawingPadding = 60.0;
     const double headerHeight = 28.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 실제 PDF 표시 영역 계산
-        final displayWidth = constraints.maxWidth - (pageMarginH * 2);
+        // 실제 PDF 표시 영역 계산 (좌우 패딩 적용)
+        final displayWidth = constraints.maxWidth - (drawingPadding * 2);
         final aspectRatio = pageImage.width! / pageImage.height!;
         final displayHeight = displayWidth / aspectRatio;
         final displaySize = Size(displayWidth, displayHeight);
 
-        // 전체 Stack 크기 (PDF + 패딩)
+        // 전체 Stack 크기 (PDF + 상하 패딩)
         final totalWidth = constraints.maxWidth;
         final totalHeight = displayHeight + headerHeight + (drawingPadding * 2);
 
@@ -518,8 +517,8 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
             children: [
               // 페이지 헤더 (페이지 번호)
               Positioned(
-                left: pageMarginH,
-                right: pageMarginH,
+                left: drawingPadding,
+                right: drawingPadding,
                 top: drawingPadding,
                 height: headerHeight,
                 child: Container(
@@ -548,8 +547,8 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
               ),
               // PDF 페이지 이미지
               Positioned(
-                left: pageMarginH,
-                right: pageMarginH,
+                left: drawingPadding,
+                right: drawingPadding,
                 top: drawingPadding + headerHeight,
                 child: Container(
                   decoration: BoxDecoration(
@@ -581,7 +580,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
                     pageSize: displaySize,
                     drawingPadding: drawingPadding,
                     headerHeight: headerHeight,
-                    marginH: pageMarginH,
+                    marginH: drawingPadding, // 좌우 패딩도 drawingPadding 사용
                   ),
                 ),
               ),
@@ -593,7 +592,7 @@ class PatternPdfScreenState extends State<PatternPdfScreen>
                     displaySize,
                     drawingPadding: drawingPadding,
                     headerHeight: headerHeight,
-                    marginH: pageMarginH,
+                    marginH: drawingPadding, // 좌우 패딩도 drawingPadding 사용
                   ),
                 ),
             ],
